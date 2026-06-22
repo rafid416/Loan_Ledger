@@ -68,15 +68,15 @@
   - [x] 1.10 Install lucide-react (ships with Shadcn, verify available): confirmed present
   - [x] 1.11 Verify dev server runs cleanly: starts in 296ms, no errors
 
-- [ ] 2.0 Define all TypeScript types and data model (traces to: FR-1, FR-2, FR-5, FR-7)
-  - [ ] 2.1 Create `src/types/loan.ts` and define the `Loan` type: `principal`, `annualRate`, `amortizationYears`, `frequency`, `startDate`, `monthlyPaymentCents`
-  - [ ] 2.2 Define the `LoanEvent` discriminated union type exactly as specified in FR-5 — amounts stored in dollars (`number`) as per the spec's own type definition. Internal math uses cents via `toCents()` at replay time.
-  - [ ] 2.3 Define `LedgerRow` type: `eventId`, `date`, `type`, `amountCents`, `interestCents`, `principalCents`, `balanceAfterCents`, `isReversed`, `reversedByEventId`
-  - [ ] 2.4 Define `LedgerState` type: `rows: LedgerRow[]`, `currentBalanceCents: number`, `accruedInterestCents: number`, `payoffTodayCents: number`
-  - [ ] 2.5 Define `DayCountConvention` type: `'actual365' | 'thirty360'`
-  - [ ] 2.6 Define `AppState` type: `loan: Loan | null`, `events: LoanEvent[]`, `convention: DayCountConvention`, `selectedEventId: string | null`
-  - [ ] 2.7 Define `Action` discriminated union for the reducer: `CREATE_LOAN`, `RESET_LOAN`, `ADD_EVENT`, `SET_CONVENTION`, `SELECT_EVENT`
-  - [ ] 2.8 Create `src/lib/money.ts` — implement `toCents(dollars: number): number` (`Math.round(dollars * 100)`) and `fromCents(cents: number): string` (formats as CAD currency for display). This is the single conversion boundary — called in replay handlers (dollars→cents) and display layer (cents→string) only. Never call elsewhere.
+- [x] 2.0 Define all TypeScript types and data model (traces to: FR-1, FR-2, FR-5, FR-7)
+  - [x] 2.1 Create `src/types/loan.ts` and define the `Loan` type: `principal`, `annualRate`, `amortizationYears`, `frequency`, `startDate`, `monthlyPaymentCents`
+  - [x] 2.2 Define the `LoanEvent` discriminated union type exactly as specified in FR-5 — amounts stored in dollars (`number`) as per the spec's own type definition. Internal math uses cents via `toCents()` at replay time.
+  - [x] 2.3 Define `LedgerRow` type: `eventId`, `date`, `type`, `amountCents`, `interestCents`, `principalCents`, `balanceAfterCents`, `isReversed`, `reversedByEventId`
+  - [x] 2.4 Define `LedgerState` type: `rows: LedgerRow[]`, `currentBalanceCents: number`, `accruedInterestCents: number`, `payoffTodayCents: number`
+  - [x] 2.5 Define `DayCountConvention` type: `'actual365' | 'thirty360'`
+  - [x] 2.6 Define `AppState` type: `loan: Loan | null`, `events: LoanEvent[]`, `convention: DayCountConvention`, `selectedEventId: string | null`
+  - [x] 2.7 Define `Action` discriminated union for the reducer: `CREATE_LOAN`, `RESET_LOAN`, `ADD_EVENT`, `SET_CONVENTION`, `SELECT_EVENT`
+  - [x] 2.8 Create `src/lib/money.ts` — implement `toCents(dollars: number): number` (`Math.round(dollars * 100)`) and `fromCents(cents: number): string` (formats as CAD currency for display). This is the single conversion boundary — called in replay handlers (dollars→cents) and display layer (cents→string) only. Never call elsewhere.
 
 - [ ] 3.0 Implement core math library (traces to: FR-2, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16)
   - [ ] 3.1 Create `src/lib/daycount.ts` — implement `daysBetween(dateA: string, dateB: string): number` using `differenceInDays` from date-fns and `parseISO`. Add a note in the function: replay sorts events by date before walking; if two events share a date, insertion order is the tiebreaker.
