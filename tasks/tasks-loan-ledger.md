@@ -92,15 +92,15 @@
   - [x] 3.11 In `replay.ts` — implement `getReversibleEvents`
   - [x] 3.12 NSF math verified: Feb 8 reversal restores balance to exactly $250,000.00; Mar 1 interest runs from Feb 8 (21 days). Math correct to the cent.
 
-- [ ] 4.0 Implement loan reducer (traces to: FR-3, FR-4, FR-6, FR-18)
-  - [ ] 4.1 Create `src/reducer/loanReducer.ts` — define `initialState: AppState` with null loan, empty events array, `actual365` default convention, null selectedEventId
-  - [ ] 4.2 Implement `CREATE_LOAN` action: calculate `monthlyPaymentCents` using `calculateMonthlyPaymentCents`, build `Loan` object, append `funding` event with principal amount in dollars and start date, generate event ID with `crypto.randomUUID()`. Note: event stores dollars — replay converts to cents.
-  - [ ] 4.3 Implement `RESET_LOAN` action: return `initialState` — clears all events and loan
-  - [ ] 4.4 Implement `ADD_EVENT` action: append the new event to the events array. Guard: if a `payoff` event already exists in the list, return state unchanged (FR-18). Generate event ID with `crypto.randomUUID()`. Events store amounts in dollars as received from the form.
-  - [ ] 4.5 Implement `SET_CONVENTION` action: update `convention` in state — `replayEvents` is memoised on `convention` so all figures update automatically on next render
-  - [ ] 4.6 Implement `SELECT_EVENT` action: set `selectedEventId` — used to pre-fill the reversal dropdown when user clicks a ledger row
-  - [ ] 4.7 Export `loanReducer` function and `AppState` type from the module
-  - [ ] 4.8 Wire `useReducer(loanReducer, initialState)` into `App.tsx`. Call `replayEvents` wrapped in `useMemo` here and pass `ledgerState` down as a prop — confirm state and dispatch are available
+- [x] 4.0 Implement loan reducer (traces to: FR-3, FR-4, FR-6, FR-18)
+  - [x] 4.1 Create `src/reducer/loanReducer.ts` — define `initialState: AppState` with null loan, empty events array, `actual365` default convention, null selectedEventId
+  - [x] 4.2 Implement `CREATE_LOAN` action: compute monthlyPaymentCents in reducer (not form), build Loan, append funding event. Action payload uses Omit<Loan, 'monthlyPaymentCents'>.
+  - [x] 4.3 Implement `RESET_LOAN` action: return `initialState`
+  - [x] 4.4 Implement `ADD_EVENT` action: payoff guard → append with fresh crypto.randomUUID(). Payload uses Omit<PostableEvent, 'id'> — reducer generates the id.
+  - [x] 4.5 Implement `SET_CONVENTION` action
+  - [x] 4.6 Implement `SELECT_EVENT` action — toggles: clicking same row again deselects
+  - [x] 4.7 Export `loanReducer` and `initialState` from the module
+  - [x] 4.8 Wire `useReducer(loanReducer, initialState)` + `useMemo` for ledgerState into `App.tsx`. TypeScript check passes clean.
 
 - [ ] 5.0 Build app shell — header, sidebar, layout, theme toggle (traces to: DRD sections 4, 6.1, 6.9)
   - [ ] 5.1 Create `src/components/AppHeader.tsx` — full-width sticky header, 48px height, bg-surface, 1px bottom border border-subtle

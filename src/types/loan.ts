@@ -55,10 +55,12 @@ export interface AppState {
 // Events the user can post after loan creation — funding is excluded (only created via CREATE_LOAN)
 export type PostableEvent = Extract<LoanEvent, { type: 'payment' | 'additional_advance' | 'payment_reversal' | 'payoff' }>
 
-// 2.7 — Action discriminated union for useReducer
+// 2.7 — Action discriminated union for useReducer.
+// CREATE_LOAN omits monthlyPaymentCents — the reducer computes it from the other fields.
+// ADD_EVENT omits id — the reducer generates it with crypto.randomUUID().
 export type Action =
-  | { type: 'CREATE_LOAN';    payload: Loan }
+  | { type: 'CREATE_LOAN';    payload: Omit<Loan, 'monthlyPaymentCents'> }
   | { type: 'RESET_LOAN' }
-  | { type: 'ADD_EVENT';      payload: PostableEvent }
+  | { type: 'ADD_EVENT';      payload: Omit<PostableEvent, 'id'> }
   | { type: 'SET_CONVENTION'; payload: DayCountConvention }
   | { type: 'SELECT_EVENT';   payload: string | null }
