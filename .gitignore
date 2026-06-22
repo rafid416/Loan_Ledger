@@ -26,6 +26,8 @@ dist-ssr
 # Private / personal Claude Code config
 CLAUDE.local.md
 .claude/settings.local.json
+.claude/memory/
+.claude/agent-memory/
 
 # AI workflow toolkit files (used to plan the project, not part of the deliverable)
 create-prd.md
