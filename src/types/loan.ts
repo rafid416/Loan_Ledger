@@ -24,7 +24,7 @@ export type LoanEvent =
 // 2.3
 export interface LedgerRow {
   eventId: string
-  date: string               // ISO date string; empty string for reversal rows (display layer leaves cell blank)
+  date: string | null        // ISO date string; null for reversal rows (display layer leaves cell blank)
   type: LoanEvent['type']
   amountCents: number
   interestCents: number
@@ -52,10 +52,13 @@ export interface AppState {
   selectedEventId: string | null
 }
 
+// Events the user can post after loan creation — funding is excluded (only created via CREATE_LOAN)
+export type PostableEvent = Extract<LoanEvent, { type: 'payment' | 'additional_advance' | 'payment_reversal' | 'payoff' }>
+
 // 2.7 — Action discriminated union for useReducer
 export type Action =
   | { type: 'CREATE_LOAN';    payload: Loan }
   | { type: 'RESET_LOAN' }
-  | { type: 'ADD_EVENT';      payload: LoanEvent }
+  | { type: 'ADD_EVENT';      payload: PostableEvent }
   | { type: 'SET_CONVENTION'; payload: DayCountConvention }
   | { type: 'SELECT_EVENT';   payload: string | null }
