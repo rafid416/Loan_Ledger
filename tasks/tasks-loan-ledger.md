@@ -55,18 +55,18 @@
   - [x] 0.2 Run `git init` in the project root (now the same as the app root)
   - [x] 0.3 Create and checkout feature branch: `git checkout -b feature/loan-ledger`
 
-- [ ] 1.0 Install and configure dependencies (Tailwind + Shadcn + date-fns + Inter font)
-  - [ ] 1.1 Run `npm install` to install Vite-generated dependencies
-  - [ ] 1.2 Install Tailwind CSS and configure: `npm install -D tailwindcss postcss autoprefixer` then `npx tailwindcss init -p`
-  - [ ] 1.3 Configure `tailwind.config.ts` — set `darkMode: 'class'`, add `./src/**/*.{ts,tsx}` to content paths
-  - [ ] 1.4 Add Tailwind directives to `src/index.css`: `@tailwind base; @tailwind components; @tailwind utilities;`
-  - [ ] 1.5 Add custom color tokens to `tailwind.config.ts` for both dark and light mode (bg-base, bg-surface, bg-elevated, bg-hover, bg-active, text-primary, text-secondary, text-tertiary, text-muted, accent-primary, accent-success, accent-warning, accent-error, border-subtle, border-default, border-focus) per DRD section 5.1
-  - [ ] 1.6 Install and initialise Shadcn UI: `npx shadcn@latest init` — select dark theme, CSS variables
-  - [ ] 1.7 Add required Shadcn components: `npx shadcn@latest add button input label select accordion badge table separator switch`
-  - [ ] 1.8 Install date-fns: `npm install date-fns`
-  - [ ] 1.9 Install Inter font via `@fontsource/inter`: `npm install @fontsource/inter` and import in `main.tsx`
-  - [ ] 1.10 Install lucide-react (ships with Shadcn, verify available): confirm `ChevronLeft`, `ChevronRight`, `Sun`, `Moon`, `Settings`, `Plus` icons are accessible
-  - [ ] 1.11 Verify dev server runs cleanly: `npm run dev` — confirm blank React app loads in browser with no console errors
+- [x] 1.0 Install and configure dependencies (Tailwind + Shadcn + date-fns + Inter font)
+  - [x] 1.1 Run `npm install` to install Vite-generated dependencies
+  - [x] 1.2 Install Tailwind CSS and configure: `npm install -D tailwindcss postcss autoprefixer` then `npx tailwindcss init -p`
+  - [x] 1.3 Configure `tailwind.config.ts` — set `darkMode: 'class'`, add `./src/**/*.{ts,tsx}` to content paths
+  - [x] 1.4 Add Tailwind directives to `src/index.css`: `@tailwind base; @tailwind components; @tailwind utilities;`
+  - [x] 1.5 Add custom color tokens to `tailwind.config.ts` for both dark and light mode (bg-base, bg-surface, bg-elevated, bg-hover, bg-active, text-primary, text-secondary, text-tertiary, text-muted, accent-primary, accent-success, accent-warning, accent-error, border-subtle, border-default, border-focus) per DRD section 5.1
+  - [x] 1.6 Install and initialise Shadcn UI: `npx shadcn@4.9.0 init` — Radix + Nova preset, CSS variables
+  - [x] 1.7 Add required Shadcn components: button input label select accordion badge table separator switch
+  - [x] 1.8 Install date-fns: `npm install date-fns`
+  - [x] 1.9 Install Inter font via `@fontsource/inter`: `npm install @fontsource/inter` and import in `main.tsx`
+  - [x] 1.10 Install lucide-react (ships with Shadcn, verify available): confirmed present
+  - [x] 1.11 Verify dev server runs cleanly: starts in 296ms, no errors
 
 - [ ] 2.0 Define all TypeScript types and data model (traces to: FR-1, FR-2, FR-5, FR-7)
   - [ ] 2.1 Create `src/types/loan.ts` and define the `Loan` type: `principal`, `annualRate`, `amortizationYears`, `frequency`, `startDate`, `monthlyPaymentCents`
