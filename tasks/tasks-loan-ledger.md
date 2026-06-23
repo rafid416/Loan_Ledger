@@ -127,38 +127,38 @@
   - [x] 6.11 On Create Loan — dispatch CREATE_LOAN, sidebar switches to Add Event accordion
   - [x] 6.12 All inputs have explicit label elements with htmlFor. Form state lifted to App.tsx so values survive accordion unmount (Radix default) and sidebar collapse.
 
-- [ ] 7.0 Build Add Event panel (traces to: FR-5, FR-6, FR-13, FR-15, FR-16, FR-17, FR-18, DRD 6.3)
-  - [ ] 7.1 Create `src/components/AddEvent.tsx` — accordion section content, disabled/muted until loan is created
-  - [ ] 7.2 Add Event Type selector — Shadcn `Select` with four options: Payment, Additional Advance, Payment Reversal (NSF), Payoff
-  - [ ] 7.3 Implement conditional field rendering based on selected event type:
+- [x] 7.0 Build Add Event panel (traces to: FR-5, FR-6, FR-13, FR-15, FR-16, FR-17, FR-18, DRD 6.3)
+  - [x] 7.1 Create `src/components/AddEvent.tsx` — accordion section content, disabled/muted until loan is created
+  - [x] 7.2 Add Event Type selector — Shadcn `Select` with four options: Payment, Additional Advance, Payment Reversal (NSF), Payoff
+  - [x] 7.3 Implement conditional field rendering based on selected event type:
     - Payment: date picker + amount input (pre-filled with monthly payment amount in dollars, editable)
     - Additional Advance: date picker + amount input
     - Payment Reversal: date picker + reversal target dropdown
     - Payoff: date picker only (defaults to today). Note: posting Payoff closes the loan — this is a terminal event, not a quote preview. The "Payoff Today" stat card is the live quote.
-  - [ ] 7.4 Implement reversal dropdown — populated by `getReversibleEvents()` from replay.ts, displays each event as "Feb 01, 2026 — $1,493.56". Pre-populated when `selectedEventId` is set in app state (DRD 6.3, FR-13)
-  - [ ] 7.5 Add Submit button — full width, accent-primary, disabled when required fields are empty. Label changes by event type: "Post Payment", "Post Advance", "Post Reversal", "Close Loan (Payoff)"
-  - [ ] 7.6 On submit — dispatch `ADD_EVENT` with event amounts stored in dollars (form values passed directly), reset form fields to defaults
-  - [ ] 7.7 Show post-payoff locked state — after a payoff event exists, disable the entire Add Event form and show message: "This loan has been paid off. No further events can be posted." (FR-18, DRD 7.5)
-  - [ ] 7.8 Add amount inputs with $ prefix — accept decimal dollar input. Pass dollar value directly to the event (no cents conversion here — that happens in replay)
-  - [ ] 7.9 All inputs have explicit `<label>` elements (ACCESS-4). Form errors shown as text below fields, not just colour (ACCESS-7)
+  - [x] 7.4 Implement reversal dropdown — populated by `getReversibleEvents()` from replay.ts, displays each event as "Feb 01, 2026 — $1,493.56". Pre-populated when `selectedEventId` is set in app state (DRD 6.3, FR-13)
+  - [x] 7.5 Add Submit button — full width, accent-primary, disabled when required fields are empty. Label changes by event type: "Post Payment", "Post Advance", "Post Reversal", "Close Loan (Payoff)"
+  - [x] 7.6 On submit — dispatch `ADD_EVENT` with event amounts stored in dollars (form values passed directly), reset form fields to defaults
+  - [x] 7.7 Show post-payoff locked state — after a payoff event exists, disable the entire Add Event form and show message: "This loan has been paid off. No further events can be posted." (FR-18, DRD 7.5)
+  - [x] 7.8 Add amount inputs with $ prefix — accept decimal dollar input. Pass dollar value directly to the event (no cents conversion here — that happens in replay)
+  - [x] 7.9 All inputs have explicit `<label>` elements (ACCESS-4). Form errors shown as text below fields, not just colour (ACCESS-7)
 
-- [ ] 8.0 Build Loan Ledger panel — stat cards + transaction table (traces to: FR-10, FR-11, FR-13, DRD 6.4, 6.5, 6.6, 6.7)
-  - [ ] 8.1 Create `src/components/LoanLedger.tsx` — receives `ledgerState` and `loan` as props. `ledgerState` is computed in `App.tsx` via `useMemo(() => replayEvents(events, loan, convention), [events, loan, convention])` — never call `replayEvents` inside this component directly
-  - [ ] 8.2 Build stat cards row — four equal-width cards in a flex row above the table: Outstanding Balance, Accrued Interest, Next Payment, Payoff Today. "Payoff Today" value comes from `calculatePayoffQuote(events, loan, convention, today)` called in App.tsx and passed as a prop — it is a live non-mutating quote, not the terminal payoff event (DRD 6.4, FR-16)
-  - [ ] 8.3 Style stat cards — bg-elevated, border border-subtle, rounded-lg, p-4. Label: 12px text-secondary. Value: 22px font-semibold text-primary font-mono (DRD 6.4)
-  - [ ] 8.4 Empty state for stat cards — show `—` in text-muted when no loan exists (DRD 7.5)
-  - [ ] 8.5 Build ledger table using Shadcn `Table` component — semantic `<table>`, `<thead>`, `<tbody>`, `<th scope="col">` for column headers (ACCESS-6)
-  - [ ] 8.6 Add table columns in order: Date, Type, Amount, Interest, Principal, Balance After — per DRD 6.5 column widths and alignment (right-align all monetary columns, left-align Date and Type)
-  - [ ] 8.7 Format all monetary values as CAD currency using `fromCents()` from `lib/money.ts` in font-mono. If a row has `isNegativePrincipal: true`, render the principal cell in accent-error red to make the delinquent case immediately visible
-  - [ ] 8.8 Format dates as "MMM DD, YYYY" using date-fns `format(parseISO(date), 'MMM dd, yyyy')`
-  - [ ] 8.9 Implement event type badges — Shadcn `Badge` component with colour variants per DRD 6.6: funding (green/success), payment (indigo/primary), additional_advance (amber/warning), payoff (muted). For `payment_reversal` rows, compute the badge label dynamically at render time: look up the original event by `row.reversesEventId` in the events array, read its `date`, and format the badge as `"NSF Reversal · MMM DD, YYYY"` (e.g. "NSF Reversal · Feb 01, 2026") in accent-error red. For reversed original payment rows (`isReversed === true`), badge label is "Payment · NSF" in accent-error red.
-  - [ ] 8.10 Implement reversed payment and reversal row display per DRD 6.7 — all rows are strictly in chronological date order (no reordering at display layer; `replayEvents` already returns rows by date). Original payment row when reversed (`isReversed === true`): `line-through opacity-50` on all cells, badge swaps to "Payment · NSF" (accent-error), `aria-label="Reversed payment"` on the `<tr>`. NSF Reversal row (`type === 'payment_reversal'`): 2px left border accent-error, Date cell is EMPTY (render an empty string — the reversal date is encoded in the type badge per DRD 6.7), Amount/Interest/Principal cells show `—`.
-  - [ ] 8.11 Implement clickable payment rows — payment and additional_advance rows show pointer cursor on hover. Clicking dispatches `SELECT_EVENT` with the row's eventId, highlights the row with bg-active + 2px left border accent-primary. Clicking the same row again deselects. State lives in the reducer (`selectedEventId`) — not local useState (DRD 6.3, 7.3)
-  - [ ] 8.12 Table row hover state — bg-hover on all rows, 44px row height (DRD 6.5)
-  - [ ] 8.13 Sticky table header — stays visible when ledger scrolls. Table container is independently scrollable within its panel (DRD 6.5)
-  - [ ] 8.14 Empty state for ledger — centered message "No events yet. Create a loan to get started." when events array is empty (DRD 7.5)
-  - [ ] 8.15 Add `aria-live="polite"` to stat cards container so screen reader announces value changes after events (ACCESS, DRD 8)
-  - [ ] 8.16 Add Actual/365 limitation note below ledger — small text-muted caption: "Interest calculated using Actual/365. Leap years use a fixed 365-day denominator." (FR-9)
+- [x] 8.0 Build Loan Ledger panel — stat cards + transaction table (traces to: FR-10, FR-11, FR-13, DRD 6.4, 6.5, 6.6, 6.7)
+  - [x] 8.1 Create `src/components/LoanLedger.tsx` — receives `ledgerState` and `loan` as props. `ledgerState` is computed in `App.tsx` via `useMemo(() => replayEvents(events, loan, convention), [events, loan, convention])` — never call `replayEvents` inside this component directly
+  - [x] 8.2 Build stat cards row — four equal-width cards in a flex row above the table: Outstanding Balance, Accrued Interest, Next Payment, Payoff Today. "Payoff Today" value comes from `calculatePayoffQuote(events, loan, convention, today)` called in App.tsx and passed as a prop — it is a live non-mutating quote, not the terminal payoff event (DRD 6.4, FR-16)
+  - [x] 8.3 Style stat cards — bg-elevated, border border-subtle, rounded-lg, p-4. Label: 12px text-secondary. Value: 22px font-semibold text-primary font-mono (DRD 6.4)
+  - [x] 8.4 Empty state for stat cards — show `—` in text-muted when no loan exists (DRD 7.5)
+  - [x] 8.5 Build ledger table using raw `<table>` HTML (not Shadcn Table — Shadcn wraps in overflow-x-auto which breaks sticky headers) — semantic `<table>`, `<thead>`, `<tbody>`, `<th scope="col">` for column headers (ACCESS-6)
+  - [x] 8.6 Add table columns in order: Date, Type, Amount, Interest, Principal, Balance After — per DRD 6.5 column widths and alignment (right-align all monetary columns, left-align Date and Type)
+  - [x] 8.7 Format all monetary values as CAD currency using `fromCents()` from `lib/money.ts` in font-mono. If a row has `isNegativePrincipal: true`, render the principal cell in accent-error red to make the delinquent case immediately visible
+  - [x] 8.8 Format dates as "MMM DD, YYYY" using date-fns `format(parseISO(date), 'MMM dd, yyyy')`
+  - [x] 8.9 Implement event type badges — Shadcn `Badge` component with colour variants per DRD 6.6: funding (green/success), payment (indigo/primary), additional_advance (amber/warning), payoff (muted). For `payment_reversal` rows, compute the badge label dynamically at render time: look up the original event by `row.reversesEventId` in the events array, read its `date`, and format the badge as `"NSF Reversal · MMM DD, YYYY"` (e.g. "NSF Reversal · Feb 01, 2026") in accent-error red. For reversed original payment rows (`isReversed === true`), badge label is "Payment · NSF" in accent-error red.
+  - [x] 8.10 Implement reversed payment and reversal row display — all rows in chronological order. Original payment when reversed (`isReversed === true`): `line-through opacity-50` on all cells, badge swaps to "Payment · NSF" (accent-error), `aria-label="Reversed payment"` on the `<tr>`. NSF Reversal row: 2px left border accent-error, reversal date shown in Date column (user requested; deviates from DRD 6.7 blank-date spec), Amount/Interest/Principal cells show `—`.
+  - [x] 8.11 Implement clickable payment rows — payment and additional_advance rows show pointer cursor on hover. Clicking dispatches `SELECT_EVENT` with the row's eventId, highlights the row with bg-active + 2px left border accent-primary. Clicking the same row again deselects. State lives in the reducer (`selectedEventId`) — not local useState (DRD 6.3, 7.3)
+  - [x] 8.12 Table row hover state — bg-hover on all rows, 44px row height (DRD 6.5)
+  - [x] 8.13 Sticky table header — stays visible when ledger scrolls. Table container is independently scrollable within its panel (DRD 6.5)
+  - [x] 8.14 Empty state for ledger — centered message "No events yet. Create a loan to get started." when events array is empty (DRD 7.5)
+  - [x] 8.15 Add `aria-live="polite"` to stat cards container so screen reader announces value changes after events (ACCESS, DRD 8)
+  - [x] 8.16 Add Actual/365 limitation note below ledger — small text-muted caption: "Interest calculated using Actual/365. Leap years use a fixed 365-day denominator." (FR-9)
 
 - [ ] 9.0 Integration pass — verify all 7 key deliverables from the spec
   - [ ] 9.1 Deliverable 1: Create a loan ($250,000, 5.25%, 25 years, Jan 1 2026) — confirm funding row appears with correct opening balance
