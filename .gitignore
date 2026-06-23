@@ -23,11 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
-# Private / personal Claude Code config
+# Claude Code config & AI tooling — build-time only, not part of the deliverable
 CLAUDE.local.md
-.claude/settings.local.json
-.claude/memory/
-.claude/agent-memory/
+.claude/
 
 # Playwright MCP working directory (accessibility snapshots, console logs)
 .playwright-mcp/
