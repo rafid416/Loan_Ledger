@@ -19,6 +19,7 @@ export interface LoanFormState {
   annualRate: string
   amortizationYears: string
   frequency: 'monthly' | 'biweekly'
+  escrow: string             // optional monthly escrow in dollars; '' means 0
   startDate: string
   touched: Set<string>
 }
@@ -28,6 +29,7 @@ export const initialLoanFormState: LoanFormState = {
   annualRate: '',
   amortizationYears: '',
   frequency: 'monthly',
+  escrow: '',
   startDate: '',
   touched: new Set(),
 }
@@ -54,7 +56,7 @@ export default function LoanSetup({
   formState,
   onFormChange,
 }: LoanSetupProps) {
-  const { principal, annualRate, amortizationYears, frequency, startDate, touched } = formState
+  const { principal, annualRate, amortizationYears, frequency, escrow, startDate, touched } = formState
 
   const errors = useMemo<FormErrors>(() => {
     const errs: FormErrors = {}
@@ -111,6 +113,7 @@ export default function LoanSetup({
         amortizationYears: parseInt(amortizationYears),
         frequency,
         startDate,
+        escrowMonthlyCents: toCents(parseFloat(escrow) || 0),
       },
     })
     onLoanCreated()
@@ -232,6 +235,28 @@ export default function LoanSetup({
             <SelectItem value="biweekly">Bi-weekly</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      {/* Escrow (optional) */}
+      <div className="flex flex-col gap-1">
+        <label htmlFor="escrow" className="text-sm font-medium text-text-primary">
+          Escrow per Payment{' '}
+          <span className="font-normal text-text-muted">(optional)</span>
+        </label>
+        <div className={wrapperCls()}>
+          <span className="mr-1.5 text-text-secondary">$</span>
+          <input
+            id="escrow"
+            type="number"
+            min="0"
+            step="0.01"
+            value={escrow}
+            onChange={(e) => onFormChange({ escrow: e.target.value })}
+            disabled={loanExists}
+            placeholder="0.00"
+            className={inputCls}
+          />
+        </div>
       </div>
 
       {/* Start Date */}

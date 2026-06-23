@@ -11,6 +11,7 @@ const LOAN: Loan = {
   frequency: 'monthly',
   startDate: '2026-01-01',
   scheduledPaymentCents: 148980, // $1,489.80 — Canadian semi-annual compounding
+  escrowMonthlyCents: 0,
 }
 
 const CONVENTION = 'actual365' as const
@@ -233,6 +234,7 @@ describe('replayEvents — additional advance', () => {
     frequency: 'monthly',
     startDate: '2026-01-01',
     scheduledPaymentCents: 148980,
+    escrowMonthlyCents: 0,
   }
 
   const events: LoanEvent[] = [
@@ -357,6 +359,7 @@ describe('replayEvents — bi-weekly payments', () => {
     frequency: 'biweekly',
     startDate: '2026-01-01',
     scheduledPaymentCents: 68_680,
+    escrowMonthlyCents: 0,
   }
 
   const events: LoanEvent[] = [
@@ -405,6 +408,59 @@ describe('replayEvents — bi-weekly payments', () => {
   })
 })
 
+// ---------------------------------------------------------------------------
+// Escrow scenario (task 15)
+//
+// $250,000 @ 5.25% / 25yr / monthly / Jan 1 2026 — $300/month escrow
+// Payment = $1,489.80 (P+I) + $300.00 (escrow) = $1,789.80
+// Escrow is collected separately from the balance reduction.
+// ---------------------------------------------------------------------------
+
+describe('replayEvents — escrow component', () => {
+  const LOAN_ESCROW: Loan = {
+    ...LOAN,
+    escrowMonthlyCents: 30_000, // $300/month
+  }
+
+  const events: LoanEvent[] = [
+    { id: 'ev-fund', type: 'funding', date: '2026-01-01', amount: 250000 },
+    { id: 'ev-pay',  type: 'payment', date: '2026-02-01', amount: 1789.80 }, // P+I+escrow
+  ]
+
+  const state = replayEvents(events, LOAN_ESCROW, CONVENTION)
+  const row = state.rows[1]
+
+  it('escrowCents = 30,000 on the payment row', () => {
+    expect(row.escrowCents).toBe(30_000)
+  })
+
+  it('interest + principal + escrow = payment to the exact cent', () => {
+    expect(row.interestCents + row.principalCents + row.escrowCents).toBe(row.amountCents)
+  })
+
+  it('principal is the same as without escrow — escrow does not reduce loan balance', () => {
+    // Same interest (111,473) and principal (37,507) as the no-escrow case
+    expect(row.principalCents).toBe(37_507)
+  })
+
+  it('balance after = 24,962,493 — unchanged from no-escrow case', () => {
+    expect(row.balanceAfterCents).toBe(24_962_493)
+  })
+
+  it('escrowBalanceCents accumulates across payments', () => {
+    expect(state.escrowBalanceCents).toBe(30_000)
+  })
+
+  it('NSF reversal backs out escrow from escrowBalanceCents', () => {
+    const reversalEvents: LoanEvent[] = [
+      ...events,
+      { id: 'ev-nsf', type: 'payment_reversal', date: '2026-02-08', reversesEventId: 'ev-pay' },
+    ]
+    const reversedState = replayEvents(reversalEvents, LOAN_ESCROW, CONVENTION)
+    expect(reversedState.escrowBalanceCents).toBe(0)
+  })
+})
+
 describe('isAlreadyReversed', () => {
   const events: LoanEvent[] = [
     { id: 'ev-fund', type: 'funding',          date: '2026-01-01', amount: 250000 },
@@ -437,6 +493,7 @@ describe('reversal guard — reducer blocks double-reversal (task 13.2)', () => 
         amortizationYears: 25,
         frequency: 'monthly',
         startDate: '2026-01-01',
+        escrowMonthlyCents: 0,
       },
     })
 

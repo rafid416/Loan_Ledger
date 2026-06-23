@@ -98,11 +98,13 @@ function LedgerRow({
   events,
   isSelected,
   dispatch,
+  hasEscrow,
 }: {
   row: LedgerRow
   events: LoanEvent[]
   isSelected: boolean
   dispatch: Dispatch<Action>
+  hasEscrow: boolean
 }) {
   const isClickable = row.type === 'payment' || row.type === 'additional_advance'
   const isReversal = row.type === 'payment_reversal'
@@ -160,6 +162,13 @@ function LedgerRow({
         {hasInterestSplit ? fromCents(row.principalCents) : '—'}
       </td>
 
+      {/* Escrow — only shown when loan has escrow configured */}
+      {hasEscrow && (
+        <td className="px-3 text-right font-mono text-sm text-text-primary whitespace-nowrap">
+          {row.type === 'payment' ? fromCents(row.escrowCents) : '—'}
+        </td>
+      )}
+
       {/* Balance After — always shown */}
       <td className="px-3 text-right font-mono text-sm text-text-primary whitespace-nowrap">
         {fromCents(row.balanceAfterCents)}
@@ -181,6 +190,7 @@ export default function LoanLedger({
 }: LoanLedgerProps) {
   const isPaidOff = events.some(e => e.type === 'payoff')
   const hasData = ledgerState !== null && ledgerState.rows.length > 0
+  const hasEscrow = (loan?.escrowMonthlyCents ?? 0) > 0
 
   return (
     <div className="flex flex-1 flex-col gap-4 overflow-hidden">
@@ -200,8 +210,14 @@ export default function LoanLedger({
         />
         <StatCard
           label="Next Payment"
-          value={loan && !isPaidOff ? fromCents(loan.scheduledPaymentCents) : null}
+          value={loan && !isPaidOff ? fromCents(loan.scheduledPaymentCents + loan.escrowMonthlyCents) : null}
         />
+        {hasEscrow && (
+          <StatCard
+            label="Escrow Balance"
+            value={ledgerState ? fromCents(ledgerState.escrowBalanceCents) : null}
+          />
+        )}
         <StatCard
           label="Payoff Today"
           value={loan ? fromCents(payoffTodayCents) : null}
@@ -245,6 +261,14 @@ export default function LoanLedger({
                 >
                   Principal
                 </th>
+                {hasEscrow && (
+                  <th
+                    scope="col"
+                    className="px-3 py-2.5 text-right text-xs font-medium text-text-secondary whitespace-nowrap"
+                  >
+                    Escrow
+                  </th>
+                )}
                 <th
                   scope="col"
                   className="px-3 py-2.5 text-right text-xs font-medium text-text-secondary whitespace-nowrap"
@@ -257,7 +281,7 @@ export default function LoanLedger({
               {!hasData ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={hasEscrow ? 7 : 6}
                     className="py-16 text-center text-sm text-text-muted"
                   >
                     No events yet. Create a loan to get started.
@@ -271,6 +295,7 @@ export default function LoanLedger({
                     events={events}
                     isSelected={row.eventId === selectedEventId}
                     dispatch={dispatch}
+                    hasEscrow={hasEscrow}
                   />
                 ))
               )}

@@ -37,7 +37,7 @@ export default function AddEvent({ loan, events, selectedEventId, dispatch }: Ad
   const [eventType, setEventType] = useState<EventType>('payment')
   const [date, setDate] = useState('')
   const [amount, setAmount] = useState(() =>
-    loan ? (loan.scheduledPaymentCents / 100).toFixed(2) : '',
+    loan ? ((loan.scheduledPaymentCents + loan.escrowMonthlyCents) / 100).toFixed(2) : '',
   )
   const [reversesEventId, setReversesEventId] = useState('')
   const [touched, setTouched] = useState<Set<string>>(new Set())
@@ -59,7 +59,7 @@ export default function AddEvent({ loan, events, selectedEventId, dispatch }: Ad
     setSubmitAttempted(false)
 
     setDate(newType === 'payoff' ? today : '')
-    setAmount(newType === 'payment' && loan ? (loan.scheduledPaymentCents / 100).toFixed(2) : '')
+    setAmount(newType === 'payment' && loan ? ((loan.scheduledPaymentCents + loan.escrowMonthlyCents) / 100).toFixed(2) : '')
     if (newType !== 'payment_reversal') setReversesEventId('')
   }
 

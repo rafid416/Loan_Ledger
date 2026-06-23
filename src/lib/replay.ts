@@ -19,6 +19,7 @@ export function replayEvents(
   // Mutable working state — only mutated inside this function.
   const rows: LedgerRow[] = []
   let balanceCents = 0
+  let escrowBalanceCents = 0
   let lastEventDate = loan.startDate
 
   for (const event of sorted) {
@@ -34,6 +35,7 @@ export function replayEvents(
           amountCents: balanceCents,
           interestCents: 0,
           principalCents: balanceCents,
+          escrowCents: 0,
           balanceAfterCents: balanceCents,
           isReversed: false,
           reversedByEventId: null,
@@ -45,11 +47,14 @@ export function replayEvents(
 
       case 'payment': {
         // 3.6 — interest accrues from last event date to this payment date
+        // Payment splits: interest + escrow + principal. Escrow does not reduce loan balance.
         const days = daysFor(lastEventDate, event.date, convention)
         const interestCents = calculateInterestCents(balanceCents, loan.annualRate, days, convention)
+        const escrowCents = loan.escrowMonthlyCents
         const paymentCents = toCents(event.amount)
-        const principalCents = paymentCents - interestCents
+        const principalCents = paymentCents - interestCents - escrowCents
         balanceCents = balanceCents - principalCents
+        escrowBalanceCents = escrowBalanceCents + escrowCents
         lastEventDate = event.date
         rows.push({
           eventId: event.id,
@@ -58,11 +63,12 @@ export function replayEvents(
           amountCents: paymentCents,
           interestCents,
           principalCents,
+          escrowCents,
           balanceAfterCents: balanceCents,
           isReversed: false,
           reversedByEventId: null,
           reversesEventId: null,
-          // Flag when interest exceeds payment — deeply delinquent; do not throw (PRD OQ-4)
+          // Flag when interest+escrow exceeds payment — deeply delinquent; do not throw (PRD OQ-4)
           isNegativePrincipal: principalCents < 0,
         })
         break
@@ -80,6 +86,7 @@ export function replayEvents(
           amountCents: advanceCents,
           interestCents: 0,
           principalCents: 0,
+          escrowCents: 0,
           balanceAfterCents: balanceCents,
           isReversed: false,
           reversedByEventId: null,
@@ -100,8 +107,10 @@ export function replayEvents(
         originalRow.isReversed = true
         originalRow.reversedByEventId = event.id
 
-        // Restore balance by reversing the exact principal that was applied
+        // Restore balance by reversing the exact principal that was applied.
+        // Also back out the exact escrow that was collected.
         balanceCents = balanceCents + originalRow.principalCents
+        escrowBalanceCents = escrowBalanceCents - originalRow.escrowCents
         lastEventDate = event.date
 
         rows.push({
@@ -111,6 +120,7 @@ export function replayEvents(
           amountCents: 0,
           interestCents: 0,
           principalCents: 0,
+          escrowCents: 0,
           balanceAfterCents: balanceCents,
           isReversed: false,
           reversedByEventId: null,
@@ -134,6 +144,7 @@ export function replayEvents(
           amountCents: totalPayoffCents,
           interestCents,
           principalCents: totalPayoffCents - interestCents,
+          escrowCents: 0,
           balanceAfterCents: 0,
           isReversed: false,
           reversedByEventId: null,
@@ -158,6 +169,7 @@ export function replayEvents(
     currentBalanceCents: balanceCents,
     accruedInterestCents,
     payoffTodayCents: balanceCents + accruedInterestCents,
+    escrowBalanceCents,
   }
 }
 

@@ -14,11 +14,11 @@ export function loanReducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'CREATE_LOAN': {
       // 4.2 — compute monthlyPaymentCents here; the form never owns this calculation
-      const { principal, annualRate, amortizationYears, frequency, startDate } = action.payload
+      const { principal, annualRate, amortizationYears, frequency, startDate, escrowMonthlyCents } = action.payload
       const scheduledPaymentCents = frequency === 'biweekly'
         ? calculateBiweeklyPaymentCents(toCents(principal), annualRate, amortizationYears)
         : calculateMonthlyPaymentCents(toCents(principal), annualRate, amortizationYears)
-      const loan: Loan = { principal, annualRate, amortizationYears, frequency, startDate, scheduledPaymentCents }
+      const loan: Loan = { principal, annualRate, amortizationYears, frequency, startDate, scheduledPaymentCents, escrowMonthlyCents }
       const fundingEvent: Extract<LoanEvent, { type: 'funding' }> = {
         id: crypto.randomUUID(),
         type: 'funding',

@@ -218,12 +218,12 @@
   - [x] 14.4 Update Add Event payment amount pre-fill to use bi-weekly amount when frequency is bi-weekly — handled via `scheduledPaymentCents` stored in Loan by reducer
   - [x] 14.5 Verify replay handles bi-weekly correctly — day counts between events are ~14 days
 
-- [ ] 15.0 Add escrow component to payment splits (traces to: PRD NG-3, prd-loan-ledger-v2.md section 7b)
-  - [ ] 15.1 Add optional `escrowMonthlyCents: number` field to the `Loan` type
-  - [ ] 15.2 Add Escrow input to Loan Setup form — optional, defaults to 0
-  - [ ] 15.3 Add `escrowCents` field to `LedgerRow` type and `escrowBalanceCents` to `LedgerState`
-  - [ ] 15.4 Update replay payment handler — split payment into interest + principal + escrow
-  - [ ] 15.5 Add Escrow column to ledger table and Escrow Balance to stat cards
+- [x] 15.0 Add escrow component to payment splits (traces to: PRD NG-3, prd-loan-ledger-v2.md section 7b)
+  - [x] 15.1 Add optional `escrowMonthlyCents: number` field to the `Loan` type
+  - [x] 15.2 Add Escrow input to Loan Setup form — optional, defaults to 0
+  - [x] 15.3 Add `escrowCents` field to `LedgerRow` type and `escrowBalanceCents` to `LedgerState`
+  - [x] 15.4 Update replay payment handler — split payment into interest + principal + escrow; NSF reversal backs out escrow from escrowBalanceCents
+  - [x] 15.5 Add Escrow column to ledger table and Escrow Balance to stat cards — both hidden when escrowMonthlyCents = 0
 
 - [ ] 16.0 Add CSV/JSON ledger export (traces to: PRD NG-6, prd-loan-ledger-v2.md section 7b)
   - [ ] 16.1 Create `src/lib/export.ts` — implement `exportCSV(rows: LedgerRow[]): void` using browser Blob API

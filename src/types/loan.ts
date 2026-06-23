@@ -1,7 +1,7 @@
 // 2.5
 export type DayCountConvention = 'actual365' | 'thirty360'
 
-// 2.1 — scheduledPaymentCents stored in cents; all other monetary fields in dollars per spec
+// 2.1 — scheduledPaymentCents and escrowMonthlyCents stored in cents; other monetary fields in dollars
 export interface Loan {
   principal: number          // dollars
   annualRate: number         // decimal (e.g. 0.05 for 5%)
@@ -9,6 +9,7 @@ export interface Loan {
   frequency: 'monthly' | 'biweekly'
   startDate: string          // ISO date string YYYY-MM-DD
   scheduledPaymentCents: number
+  escrowMonthlyCents: number // 0 when no escrow configured
 }
 
 // 2.2 — LoanEvent discriminated union per FR-5.
@@ -29,6 +30,7 @@ export interface LedgerRow {
   amountCents: number
   interestCents: number
   principalCents: number
+  escrowCents: number        // 0 for non-payment rows or when no escrow configured
   balanceAfterCents: number
   isReversed: boolean
   reversedByEventId: string | null
@@ -42,6 +44,7 @@ export interface LedgerState {
   currentBalanceCents: number
   accruedInterestCents: number
   payoffTodayCents: number
+  escrowBalanceCents: number // running total of escrow collected across all payments
 }
 
 // 2.6
@@ -56,7 +59,7 @@ export interface AppState {
 export type PostableEvent = Extract<LoanEvent, { type: 'payment' | 'additional_advance' | 'payment_reversal' | 'payoff' }>
 
 // 2.7 — Action discriminated union for useReducer.
-// CREATE_LOAN omits monthlyPaymentCents — the reducer computes it from the other fields.
+// CREATE_LOAN omits scheduledPaymentCents — the reducer computes it. escrowMonthlyCents comes from the form.
 // ADD_EVENT omits id — the reducer generates it with crypto.randomUUID().
 export type Action =
   | { type: 'CREATE_LOAN';    payload: Omit<Loan, 'scheduledPaymentCents'> }
