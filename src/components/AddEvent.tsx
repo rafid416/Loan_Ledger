@@ -66,6 +66,9 @@ export default function AddEvent({ loan, events, selectedEventId, dispatch }: Ad
   const amountVal = parseFloat(amount)
   const amountValid = !isNaN(amountVal) && amountVal > 0
 
+  // Events cannot be dated before the funding date
+  const dateBeforeFunding = loan !== null && date !== '' && date < loan.startDate
+
   // 13.3 — true when the currently selected reversal target is already reversed
   const alreadyReversedError = useMemo(
     () =>
@@ -76,6 +79,7 @@ export default function AddEvent({ loan, events, selectedEventId, dispatch }: Ad
   )
 
   const isValid = useMemo(() => {
+    if (dateBeforeFunding) return false
     switch (eventType) {
       case 'payment':
       case 'additional_advance':
@@ -85,7 +89,7 @@ export default function AddEvent({ loan, events, selectedEventId, dispatch }: Ad
       case 'payoff':
         return date !== ''
     }
-  }, [eventType, date, amountValid, reversesEventId, alreadyReversedError])
+  }, [eventType, date, amountValid, reversesEventId, alreadyReversedError, dateBeforeFunding])
 
   function touch(field: string) {
     setTouched(prev => new Set([...prev, field]))
@@ -197,12 +201,18 @@ export default function AddEvent({ loan, events, selectedEventId, dispatch }: Ad
           id="event-date"
           type="date"
           value={date}
+          min={loan?.startDate}
           onChange={e => setDate(e.target.value)}
           onBlur={() => touch('date')}
-          className={standaloneCls(showError('date', date === ''))}
+          className={standaloneCls(showError('date', date === '') || dateBeforeFunding)}
         />
         {showError('date', date === '') && (
           <p className="text-[12px] text-accent-error">Date is required</p>
+        )}
+        {dateBeforeFunding && (
+          <p className="text-[12px] text-accent-error">
+            Date cannot be before the funding date ({loan!.startDate})
+          </p>
         )}
       </div>
 
