@@ -106,7 +106,7 @@ export function replayEvents(
 
         rows.push({
           eventId: event.id,
-          date: null, // display layer leaves date cell blank per DRD 6.7
+          date: event.date,
           type: 'payment_reversal',
           amountCents: 0,
           interestCents: 0,

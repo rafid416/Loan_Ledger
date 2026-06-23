@@ -1,10 +1,11 @@
 import { useMemo, useReducer, useState } from 'react'
 import { loanReducer, initialState } from '@/reducer/loanReducer'
-import { replayEvents } from '@/lib/replay'
+import { replayEvents, calculatePayoffQuote } from '@/lib/replay'
 import AppHeader from '@/components/AppHeader'
 import Sidebar from '@/components/Sidebar'
 import LoanSetup, { type LoanFormState, initialLoanFormState } from '@/components/LoanSetup'
 import AddEvent from '@/components/AddEvent'
+import LoanLedger from '@/components/LoanLedger'
 
 export default function App() {
   const [state, dispatch] = useReducer(loanReducer, initialState)
@@ -21,8 +22,12 @@ export default function App() {
     [state.events, state.loan, state.convention],
   )
 
-  // ledgerState will be passed to LoanLedger in task 8
-  void ledgerState
+  // Live payoff quote as of today — non-mutating, passed to LoanLedger stat card
+  const payoffTodayCents = useMemo(() => {
+    if (!state.loan) return 0
+    const today = new Date().toISOString().slice(0, 10)
+    return calculatePayoffQuote(state.events, state.loan, state.convention, today)
+  }, [state.events, state.loan, state.convention])
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-bg-base">
@@ -50,7 +55,14 @@ export default function App() {
           }
         />
         <main className="flex flex-1 flex-col overflow-hidden p-4">
-          {/* Stat cards + ledger table — task 8 */}
+          <LoanLedger
+            loan={state.loan}
+            ledgerState={ledgerState}
+            events={state.events}
+            selectedEventId={state.selectedEventId}
+            dispatch={dispatch}
+            payoffTodayCents={payoffTodayCents}
+          />
         </main>
       </div>
     </div>
