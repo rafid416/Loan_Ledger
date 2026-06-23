@@ -2,7 +2,6 @@ import { type Dispatch } from 'react'
 import { format, parseISO } from 'date-fns'
 import { FileDown } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { fromCents } from '@/lib/money'
 import { exportCSV, exportJSON } from '@/lib/export'
@@ -331,26 +330,22 @@ export default function LoanLedger({
           )}
 
           <div className="flex shrink-0 gap-1.5">
-            <Button
-              variant="outline"
-              size="sm"
+            <button
               disabled={!hasData}
               onClick={() => exportCSV(ledgerState!.rows, hasEscrow)}
-              className="h-7 gap-1 border-border-default bg-bg-elevated px-2.5 text-[11px] text-text-primary hover:bg-bg-hover disabled:opacity-40 dark:border-border-default dark:bg-bg-elevated dark:hover:bg-bg-hover"
+              className="flex h-7 items-center gap-1 rounded-md border border-border-default bg-bg-elevated px-2.5 text-[11px] text-text-primary transition-colors hover:bg-bg-hover dark:hover:bg-bg-active disabled:cursor-not-allowed disabled:opacity-40"
             >
               <FileDown className="h-3 w-3" />
               CSV
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
+            </button>
+            <button
               disabled={!loan || !hasData}
               onClick={() => exportJSON(events, loan!)}
-              className="h-7 gap-1 border-border-default bg-bg-elevated px-2.5 text-[11px] text-text-primary hover:bg-bg-hover disabled:opacity-40 dark:border-border-default dark:bg-bg-elevated dark:hover:bg-bg-hover"
+              className="flex h-7 items-center gap-1 rounded-md border border-border-default bg-bg-elevated px-2.5 text-[11px] text-text-primary transition-colors hover:bg-bg-hover dark:hover:bg-bg-active disabled:cursor-not-allowed disabled:opacity-40"
             >
               <FileDown className="h-3 w-3" />
               JSON
-            </Button>
+            </button>
           </div>
         </div>
       </div>

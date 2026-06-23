@@ -54,7 +54,7 @@ export default function AppHeader({ convention, dispatch }: AppHeaderProps) {
               className={
                 convention === seg.value
                   ? 'rounded-md bg-bg-surface dark:bg-zinc-700 px-3 py-1 text-xs font-medium text-text-primary shadow-sm ring-1 ring-border-subtle transition-all'
-                  : 'rounded-md px-3 py-1 text-xs text-text-secondary transition-all hover:text-text-primary'
+                  : 'rounded-md px-3 py-1 text-xs text-text-secondary transition-all hover:bg-bg-hover hover:text-text-primary dark:hover:bg-bg-active'
               }
             >
               {seg.label}
