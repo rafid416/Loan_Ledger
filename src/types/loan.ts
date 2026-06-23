@@ -25,7 +25,7 @@ export type LoanEvent =
 // 2.3
 export interface LedgerRow {
   eventId: string
-  date: string | null        // ISO date string; null for reversal rows (display layer leaves cell blank)
+  date: string | null        // ISO date string; all current row types carry a date, but null is kept in the type for safety
   type: LoanEvent['type']
   amountCents: number
   interestCents: number
@@ -44,7 +44,9 @@ export interface LedgerState {
   currentBalanceCents: number
   accruedInterestCents: number
   payoffTodayCents: number
-  escrowBalanceCents: number // running total of escrow collected across all payments
+  escrowBalanceCents: number   // running total of escrow collected across all payments
+  lastEventDate: string        // date of the most recent event (advances update this)
+  pendingInterestCents: number // interest accrued on pre-advance balance sub-periods not yet settled
 }
 
 // 2.6
@@ -59,10 +61,10 @@ export interface AppState {
 export type PostableEvent = Extract<LoanEvent, { type: 'payment' | 'additional_advance' | 'payment_reversal' | 'payoff' }>
 
 // 2.7 — Action discriminated union for useReducer.
-// CREATE_LOAN omits scheduledPaymentCents — the reducer computes it. escrowMonthlyCents comes from the form.
+// CREATE_LOAN omits scheduledPaymentCents (reducer computes it) and escrowMonthlyCents (reducer converts from dollars).
 // ADD_EVENT omits id — the reducer generates it with crypto.randomUUID().
 export type Action =
-  | { type: 'CREATE_LOAN';    payload: Omit<Loan, 'scheduledPaymentCents'> }
+  | { type: 'CREATE_LOAN';    payload: Omit<Loan, 'scheduledPaymentCents' | 'escrowMonthlyCents'> & { escrowMonthly: number } }
   | { type: 'RESET_LOAN' }
   | { type: 'ADD_EVENT';      payload: Omit<PostableEvent, 'id'> }
   | { type: 'SET_CONVENTION'; payload: DayCountConvention }

@@ -1,5 +1,4 @@
-import type { Action, AppState, Loan, LoanEvent } from '@/types/loan'
-import { toCents } from '@/lib/money'
+import type { Action, AppState, Loan, LoanEvent, PostableEvent } from '@/types/loan'
 import { calculateMonthlyPaymentCents, calculateBiweeklyPaymentCents } from '@/lib/amortization'
 import { isAlreadyReversed } from '@/lib/replay'
 
@@ -14,11 +13,12 @@ export function loanReducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'CREATE_LOAN': {
       // 4.2 — compute monthlyPaymentCents here; the form never owns this calculation
-      const { principal, annualRate, amortizationYears, frequency, startDate, escrowMonthlyCents } = action.payload
+      const { principal, annualRate, amortizationYears, frequency, startDate, escrowMonthly } = action.payload
+      const principalCents = Math.round(principal * 100)
       const scheduledPaymentCents = frequency === 'biweekly'
-        ? calculateBiweeklyPaymentCents(toCents(principal), annualRate, amortizationYears)
-        : calculateMonthlyPaymentCents(toCents(principal), annualRate, amortizationYears)
-      const loan: Loan = { principal, annualRate, amortizationYears, frequency, startDate, scheduledPaymentCents, escrowMonthlyCents }
+        ? calculateBiweeklyPaymentCents(principalCents, annualRate, amortizationYears)
+        : calculateMonthlyPaymentCents(principalCents, annualRate, amortizationYears)
+      const loan: Loan = { principal, annualRate, amortizationYears, frequency, startDate, scheduledPaymentCents, escrowMonthlyCents: Math.round(escrowMonthly * 100) }
       const fundingEvent: Extract<LoanEvent, { type: 'funding' }> = {
         id: crypto.randomUUID(),
         type: 'funding',
@@ -36,12 +36,13 @@ export function loanReducer(state: AppState, action: Action): AppState {
     case 'ADD_EVENT': {
       // 4.4 — terminal guard: no events after payoff
       if (state.events.some(e => e.type === 'payoff')) return state
-      // 13.2 — reversal guard: silently block double-reversals
-      if (
-        action.payload.type === 'payment_reversal' &&
-        isAlreadyReversed(action.payload.reversesEventId, state.events)
-      ) return state
-      const newEvent = { ...action.payload, id: crypto.randomUUID() } as LoanEvent
+      // 13.2 — reversal guard: only payments are reversible; block double-reversals
+      if (action.payload.type === 'payment_reversal') {
+        const target = state.events.find(e => e.id === action.payload.reversesEventId)
+        if (!target || target.type !== 'payment') return state
+        if (isAlreadyReversed(action.payload.reversesEventId, state.events)) return state
+      }
+      const newEvent: PostableEvent = { ...action.payload, id: crypto.randomUUID() } as PostableEvent
       return { ...state, events: [...state.events, newEvent] }
     }
 

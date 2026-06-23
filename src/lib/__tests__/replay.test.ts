@@ -23,12 +23,12 @@ const CONVENTION = 'actual365' as const
 //   Jan 01 — Funding  $250,000.00
 //   Feb 01 — Payment  $1,489.80   (31 days of interest)
 //   Feb 08 — NSF reversal of Feb 01 payment
-//   Mar 01 — Payment  $1,489.80   (21 days of interest from Feb 08)
+//   Mar 01 — Payment  $1,489.80   (59 days of interest from Jan 01)
 //
 // Key assertions:
 //   1. Each payment: interest + principal = payment to the exact cent
 //   2. NSF restores balance to EXACTLY $250,000.00 (original opening balance)
-//   3. Mar 01 interest runs from Feb 08 (21 days), not Feb 01 (28 days)
+//   3. Mar 01 interest runs from Jan 01 (59 days) — payment never cleared, clock resets to last valid event
 //   4. Original Feb 01 row is marked isReversed=true
 // ---------------------------------------------------------------------------
 
@@ -112,22 +112,25 @@ describe('replayEvents — NSF reversal scenario', () => {
     })
   })
 
-  describe('Mar 01 — payment row (21 days from Feb 08, not 28 days from Feb 01)', () => {
+  describe('Mar 01 — payment row (59 days from Jan 01 — NSF means payment never cleared)', () => {
     const row = rows[3]
-    // Actual/365: Math.round(25_000_000 * 0.0525 / 365 * 21) = 75,514
-    it('interest = 75,514 cents ($755.14) — 21 days from Feb 08', () => {
-      expect(row.interestCents).toBe(75_514)
+    // Actual/365: Math.round(25_000_000 * 0.0525 / 365 * 59) = 212,158
+    it('interest = 212,158 cents ($2,121.58) — 59 days from Jan 01', () => {
+      expect(row.interestCents).toBe(212_158)
     })
-    // principal = 148,980 - 75,514 = 73,466
-    it('principal = 73,466 cents ($734.66)', () => {
-      expect(row.principalCents).toBe(73_466)
+    // principal = 148,980 - 212,158 = -63,178 (negative amortization)
+    it('principal = -63,178 cents (negative amortization — interest exceeds payment)', () => {
+      expect(row.principalCents).toBe(-63_178)
     })
     it('interest + principal = payment to the exact cent', () => {
       expect(row.interestCents + row.principalCents).toBe(row.amountCents)
     })
-    // balance = 25,000,000 - 73,466 = 24,926,534
-    it('balance after = 24,926,534 cents ($249,265.34)', () => {
-      expect(row.balanceAfterCents).toBe(24_926_534)
+    // balance = 25,000,000 - (-63,178) = 25,063,178 (increases due to negative amortization)
+    it('balance after = 25,063,178 cents ($250,631.78) — balance grows due to negative amortization', () => {
+      expect(row.balanceAfterCents).toBe(25_063_178)
+    })
+    it('isNegativePrincipal = true — interest exceeds the payment amount', () => {
+      expect(row.isNegativePrincipal).toBe(true)
     })
     it('is not reversed', () => {
       expect(row.isReversed).toBe(false)
@@ -135,15 +138,17 @@ describe('replayEvents — NSF reversal scenario', () => {
   })
 
   describe('final ledger state', () => {
-    it('currentBalanceCents = 24,926,534', () => {
-      expect(state.currentBalanceCents).toBe(24_926_534)
+    it('currentBalanceCents = 25,063,178 — balance grew due to negative amortization after NSF', () => {
+      expect(state.currentBalanceCents).toBe(25_063_178)
     })
-    it('Mar 01 interest would be higher if window ran from Feb 01 (28 days)', () => {
-      // 28-day interest would be: Math.round(25_000_000 * 0.0525 / 365 * 28) = 100,685
-      // Actual 21-day interest is 75,514 — proves clock reset to reversal date
-      const hypothetical28DayInterest = Math.round(25_000_000 * 0.0525 / 365 * 28)
-      expect(hypothetical28DayInterest).toBe(100_685)
-      expect(rows[3].interestCents).toBeLessThan(hypothetical28DayInterest)
+    it('Mar 01 interest runs from last valid event (Jan 01, 59 days) — not original payment or reversal date', () => {
+      const days59Interest = Math.round(25_000_000 * 0.0525 / 365 * 59) // from Jan 01 (correct)
+      const days28Interest = Math.round(25_000_000 * 0.0525 / 365 * 28) // from Feb 01 (wrong)
+      const days21Interest = Math.round(25_000_000 * 0.0525 / 365 * 21) // from Feb 08 (wrong)
+      expect(days59Interest).toBe(212_158)
+      expect(rows[3].interestCents).toBe(days59Interest)
+      expect(rows[3].interestCents).toBeGreaterThan(days28Interest)
+      expect(rows[3].interestCents).toBeGreaterThan(days21Interest)
     })
   })
 })
@@ -165,14 +170,15 @@ describe('getReversibleEvents', () => {
     expect(reversible[0].id).toBe('ev-pay2')
   })
 
-  it('returns all payments and advances when none are reversed', () => {
+  it('returns only payments — advances are not reversible', () => {
     const events: LoanEvent[] = [
       { id: 'ev-fund',  type: 'funding',          date: '2026-01-01', amount: 250000 },
       { id: 'ev-pay1', type: 'payment',            date: '2026-02-01', amount: 1489.80 },
       { id: 'ev-adv',  type: 'additional_advance', date: '2026-02-15', amount: 5000 },
     ]
     const reversible = getReversibleEvents(events)
-    expect(reversible).toHaveLength(2)
+    expect(reversible).toHaveLength(1)
+    expect(reversible[0].id).toBe('ev-pay1')
   })
 
   it('excludes funding events (not reversible)', () => {
@@ -256,10 +262,13 @@ describe('replayEvents — additional advance', () => {
     expect(rows[1].principalCents).toBe(0)
   })
 
-  it('payment row: interest accrues on the higher post-advance balance', () => {
-    // 28 days from Feb 01 to Mar 01, balance = 25,000,000
+  it('payment row: interest spans both sub-periods (Jan 01→Feb 01 on 20M, Feb 01→Mar 01 on 25M)', () => {
+    // Sub-period 1: Jan 01 → Feb 01, 31 days, balance = 20,000,000 (pre-advance)
+    // Math.round(20_000_000 × 0.0525 × 31 / 365) = 89,178
+    // Sub-period 2: Feb 01 → Mar 01, 28 days, balance = 25,000,000 (post-advance)
     // Math.round(25_000_000 × 0.0525 × 28 / 365) = 100,685
-    expect(rows[2].interestCents).toBe(100_685)
+    // Total = 189,863
+    expect(rows[2].interestCents).toBe(189_863)
   })
 
   it('payment row: interest + principal = payment to the cent', () => {
@@ -298,7 +307,7 @@ describe('calculatePayoffQuote', () => {
     expect(quote).toBe(0)
   })
 
-  it('quote is clamped to 0 when asOfDate is before last event date', () => {
+  it('quote equals current balance when asOfDate is before last event date (accrued days clamped to 0)', () => {
     // asOfDate Jan 15, but last event is Feb 01 — days = negative → clamped to 0
     const balance = replayEvents(events, LOAN, CONVENTION).currentBalanceCents
     const quote = calculatePayoffQuote(events, LOAN, CONVENTION, '2026-01-15')
@@ -482,6 +491,65 @@ describe('isAlreadyReversed', () => {
   })
 })
 
+// ---------------------------------------------------------------------------
+// Bi-weekly NSF reversal — regression scenario
+//
+// $500k @ 6.97% / 25yr / biweekly / $100 escrow / Jun 01 2026
+// Jun 15 → payment (14 days)
+// Jun 29 → payment (14 days)
+// Jul 13 → payment (14 days)
+// Jul 15 → NSF reversal of Jul 13 payment
+//
+// Verifies that the reversal is processed in the biweekly path
+// (escrow scaling via × 12/26 must not break the originalRow lookup).
+// ---------------------------------------------------------------------------
+
+describe('replayEvents — biweekly NSF reversal', () => {
+  const LOAN_500K_BIWEEKLY: Loan = {
+    principal: 500000,
+    annualRate: 0.0697,
+    amortizationYears: 25,
+    frequency: 'biweekly',
+    startDate: '2026-06-01',
+    scheduledPaymentCents: 160_959, // approximate; not used by reversal path
+    escrowMonthlyCents: 10_000,     // $100/month → $46.15 per biweekly payment
+  }
+
+  const events: LoanEvent[] = [
+    { id: 'ev-fund', type: 'funding',          date: '2026-06-01', amount: 500000 },
+    { id: 'ev-pay1', type: 'payment',           date: '2026-06-15', amount: 1655.74 },
+    { id: 'ev-pay2', type: 'payment',           date: '2026-06-29', amount: 1655.74 },
+    { id: 'ev-pay3', type: 'payment',           date: '2026-07-13', amount: 1655.74 },
+    { id: 'ev-nsf',  type: 'payment_reversal',  date: '2026-07-15', reversesEventId: 'ev-pay3' },
+  ]
+
+  const state = replayEvents(events, LOAN_500K_BIWEEKLY, CONVENTION)
+  const { rows } = state
+
+  it('produces 5 ledger rows (reversal is NOT silently dropped)', () => {
+    expect(rows).toHaveLength(5)
+  })
+
+  it('row 4 type is payment_reversal', () => {
+    expect(rows[4].type).toBe('payment_reversal')
+  })
+
+  it('Jul 13 payment row is marked isReversed = true', () => {
+    expect(rows[3].isReversed).toBe(true)
+    expect(rows[3].reversedByEventId).toBe('ev-nsf')
+  })
+
+  it('balance restores to pre-Jul-13 level after reversal', () => {
+    // After reversal: balance = Jun 29 balance (before Jul 13 was applied)
+    expect(rows[4].balanceAfterCents).toBe(rows[2].balanceAfterCents)
+  })
+
+  it('escrowBalanceCents drops back to 2 payments worth after reversal', () => {
+    const perPaymentEscrow = Math.round(10_000 * 12 / 26) // 4,615
+    expect(state.escrowBalanceCents).toBe(perPaymentEscrow * 2)
+  })
+})
+
 describe('reversal guard — reducer blocks double-reversal (task 13.2)', () => {
   it('state is unchanged (same reference) when attempting to reverse an already-reversed payment', () => {
     // Step 1: create loan (appends funding event automatically)
@@ -493,7 +561,7 @@ describe('reversal guard — reducer blocks double-reversal (task 13.2)', () => 
         amortizationYears: 25,
         frequency: 'monthly',
         startDate: '2026-01-01',
-        escrowMonthlyCents: 0,
+        escrowMonthly: 0,
       },
     })
 

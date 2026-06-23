@@ -13,7 +13,7 @@ export function replayEvents(
 ): LedgerState {
   // Sort ascending by date. Stable sort preserves insertion order for same-date events.
   const sorted = [...events].sort(
-    (a, b) => parseISO(a.date ?? '').getTime() - parseISO(b.date ?? '').getTime(),
+    (a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime(),
   )
 
   // Mutable working state — only mutated inside this function.
@@ -21,6 +21,9 @@ export function replayEvents(
   let balanceCents = 0
   let escrowBalanceCents = 0
   let lastEventDate = loan.startDate
+  // Interest accrued on pre-advance balance sub-periods, carried forward to the next
+  // payment or payoff. Each advance closes the prior sub-period into this accumulator.
+  let pendingInterestCents = 0
 
   for (const event of sorted) {
     switch (event.type) {
@@ -46,11 +49,15 @@ export function replayEvents(
       }
 
       case 'payment': {
-        // 3.6 — interest accrues from last event date to this payment date
-        // Payment splits: interest + escrow + principal. Escrow does not reduce loan balance.
+        // 3.6 — interest = pending sub-periods (from advances) + current period.
+        // Pending is non-zero when advances occurred since the last payment or funding.
         const days = daysFor(lastEventDate, event.date, convention)
-        const interestCents = calculateInterestCents(balanceCents, loan.annualRate, days, convention)
-        const escrowCents = loan.escrowMonthlyCents
+        const interestCents = pendingInterestCents + calculateInterestCents(balanceCents, loan.annualRate, days, convention)
+        pendingInterestCents = 0
+
+        const escrowCents = loan.frequency === 'biweekly'
+          ? Math.round(loan.escrowMonthlyCents * 12 / 26)
+          : loan.escrowMonthlyCents
         const paymentCents = toCents(event.amount)
         const principalCents = paymentCents - interestCents - escrowCents
         balanceCents = balanceCents - principalCents
@@ -75,7 +82,14 @@ export function replayEvents(
       }
 
       case 'additional_advance': {
-        // 3.7 — increases balance; no interest/principal split on an advance
+        // 3.7 — closes the prior sub-period into pendingInterestCents before raising the balance.
+        // This ensures the next payment collects interest across every balance step:
+        //   sub-period 1: lastEventDate → advance date on pre-advance balance → pending
+        //   sub-period 2: advance date → payment date on post-advance balance → collected at payment
+        // Multiple sequential advances each append their own sub-period to the accumulator.
+        const days = daysFor(lastEventDate, event.date, convention)
+        pendingInterestCents += calculateInterestCents(balanceCents, loan.annualRate, days, convention)
+
         const advanceCents = toCents(event.amount)
         balanceCents = balanceCents + advanceCents
         lastEventDate = event.date
@@ -98,20 +112,28 @@ export function replayEvents(
 
       case 'payment_reversal': {
         // 3.8 — backs out the EXACT cents from the original payment row.
+        // Only payments are reversible (advances are not NSF-able).
         // Finds the original row by reversesEventId. Marks original isReversed = true.
-        // Interest window for subsequent events starts from the reversal date.
-        const originalRow = rows.find(r => r.eventId === event.reversesEventId)
-        if (!originalRow) break // guard: original already removed or id wrong
+        // Interest clock resets to the event BEFORE the reversed payment — the payment
+        // never cleared, so interest continues accruing from the last valid event date.
+        // Any pendingInterest from advances that accrued between the payment and this
+        // reversal is cleared: the clock resets to before the payment anyway.
+        const originalRowIndex = rows.findIndex(r => r.eventId === event.reversesEventId)
+        if (originalRowIndex === -1) break // guard: original not found
 
+        const originalRow = rows[originalRowIndex]
         // Mark original row reversed
         originalRow.isReversed = true
         originalRow.reversedByEventId = event.id
 
-        // Restore balance by reversing the exact principal that was applied.
-        // Also back out the exact escrow that was collected.
+        // Restore balance and escrow from the exact principal/escrow recorded on the row
         balanceCents = balanceCents + originalRow.principalCents
         escrowBalanceCents = escrowBalanceCents - originalRow.escrowCents
-        lastEventDate = event.date
+        // Clear pending interest: the clock resets to before the reversed payment
+        pendingInterestCents = 0
+
+        const previousRow = rows[originalRowIndex - 1]
+        lastEventDate = previousRow?.date ?? loan.startDate
 
         rows.push({
           eventId: event.id,
@@ -131,9 +153,11 @@ export function replayEvents(
       }
 
       case 'payoff': {
-        // 3.9 — interest accrues from last event to payoff date; then balance goes to zero
+        // 3.9 — interest = pending sub-periods (from advances) + current period; then balance → 0.
         const days = daysFor(lastEventDate, event.date, convention)
-        const interestCents = calculateInterestCents(balanceCents, loan.annualRate, days, convention)
+        const interestCents = pendingInterestCents + calculateInterestCents(balanceCents, loan.annualRate, days, convention)
+        pendingInterestCents = 0
+
         const totalPayoffCents = balanceCents + interestCents
         balanceCents = 0
         lastEventDate = event.date
@@ -156,13 +180,14 @@ export function replayEvents(
     }
   }
 
-  // Accrued interest = interest that would accrue today if a payment were made right now.
+  // Accrued interest = what would be owed if a payment were made right now.
+  // Includes any pending sub-period interest from advances since the last payment.
   // Only meaningful if loan is open (no payoff event).
-  const isPayedOff = events.some(e => e.type === 'payoff')
+  const isPaidOff = events.some(e => e.type === 'payoff')
   const daysToToday = Math.max(0, daysFor(lastEventDate, new Date().toISOString().slice(0, 10), convention))
-  const accruedInterestCents = isPayedOff
+  const accruedInterestCents = isPaidOff
     ? 0
-    : calculateInterestCents(balanceCents, loan.annualRate, daysToToday, convention)
+    : pendingInterestCents + calculateInterestCents(balanceCents, loan.annualRate, daysToToday, convention)
 
   return {
     rows,
@@ -170,11 +195,14 @@ export function replayEvents(
     accruedInterestCents,
     payoffTodayCents: balanceCents + accruedInterestCents,
     escrowBalanceCents,
+    lastEventDate,
+    pendingInterestCents,
   }
 }
 
 // 3.10 — Non-mutating payoff quote as of any date.
 // Used by the "Payoff Today" stat card. Does NOT post an event.
+// Includes any pending sub-period interest from advances since the last payment.
 export function calculatePayoffQuote(
   events: LoanEvent[],
   loan: Loan,
@@ -184,10 +212,8 @@ export function calculatePayoffQuote(
   const state = replayEvents(events, loan, convention)
   if (state.currentBalanceCents === 0) return 0
 
-  const lastRow = state.rows[state.rows.length - 1]
-  const lastDate = lastRow?.date ?? loan.startDate
-  const days = Math.max(0, daysFor(lastDate, asOfDate, convention))
-  const interestCents = calculateInterestCents(
+  const days = Math.max(0, daysFor(state.lastEventDate, asOfDate, convention))
+  const interestCents = state.pendingInterestCents + calculateInterestCents(
     state.currentBalanceCents,
     loan.annualRate,
     days,
@@ -201,14 +227,18 @@ export function isAlreadyReversed(eventId: string, events: LoanEvent[]): boolean
   return events.some(e => e.type === 'payment_reversal' && e.reversesEventId === eventId)
 }
 
-// 3.11 — Returns events eligible for reversal: payments and advances not yet reversed.
-export function getReversibleEvents(events: LoanEvent[]): LoanEvent[] {
+// 3.11 — Returns payment events eligible for reversal (not already reversed).
+// Only payments are reversible — advances do not NSF.
+export function getReversibleEvents(
+  events: LoanEvent[],
+): Extract<LoanEvent, { type: 'payment' }>[] {
   const reversedIds = new Set(
     events
       .filter((e): e is Extract<LoanEvent, { type: 'payment_reversal' }> => e.type === 'payment_reversal')
       .map(e => e.reversesEventId),
   )
   return events.filter(
-    e => (e.type === 'payment' || e.type === 'additional_advance') && !reversedIds.has(e.id),
+    (e): e is Extract<LoanEvent, { type: 'payment' }> =>
+      e.type === 'payment' && !reversedIds.has(e.id),
   )
 }
