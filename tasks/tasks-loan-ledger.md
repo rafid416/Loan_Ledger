@@ -211,12 +211,12 @@
   - [x] 13.4 Filter already-reversed events out of the reversal dropdown
   - [x] 13.5 Add unit test: attempt to reverse an already-reversed payment, assert state is unchanged
 
-- [ ] 14.0 Add bi-weekly payment frequency support (traces to: PRD NG-2, prd-loan-ledger-v2.md section 7b)
-  - [ ] 14.1 Add `'biweekly'` to the `frequency` field in the `Loan` type
-  - [ ] 14.2 Implement `calculateBiweeklyPaymentCents` — `n = amortizationYears × 26`, bi-weekly rate derived from semi-annual compounding
-  - [ ] 14.3 Enable Payment Frequency selector in Loan Setup to offer "Bi-weekly" option
-  - [ ] 14.4 Update Add Event payment amount pre-fill to use bi-weekly amount when frequency is bi-weekly
-  - [ ] 14.5 Verify replay handles bi-weekly correctly — day counts between events are ~14 days
+- [x] 14.0 Add bi-weekly payment frequency support (traces to: PRD NG-2, prd-loan-ledger-v2.md section 7b)
+  - [x] 14.1 Add `'biweekly'` to the `frequency` field in the `Loan` type; renamed `monthlyPaymentCents` → `scheduledPaymentCents` for frequency-agnostic storage
+  - [x] 14.2 Implement `calculateBiweeklyPaymentCents` — `n = amortizationYears × 26`, bi-weekly rate derived from semi-annual compounding: `r = (1 + annualRate/2)^(1/13) - 1`
+  - [x] 14.3 Enable Payment Frequency selector in Loan Setup to offer "Bi-weekly" option; preview label updates dynamically
+  - [x] 14.4 Update Add Event payment amount pre-fill to use bi-weekly amount when frequency is bi-weekly — handled via `scheduledPaymentCents` stored in Loan by reducer
+  - [x] 14.5 Verify replay handles bi-weekly correctly — day counts between events are ~14 days
 
 - [ ] 15.0 Add escrow component to payment splits (traces to: PRD NG-3, prd-loan-ledger-v2.md section 7b)
   - [ ] 15.1 Add optional `escrowMonthlyCents: number` field to the `Loan` type

@@ -1,6 +1,6 @@
 import type { Action, AppState, Loan, LoanEvent } from '@/types/loan'
 import { toCents } from '@/lib/money'
-import { calculateMonthlyPaymentCents } from '@/lib/amortization'
+import { calculateMonthlyPaymentCents, calculateBiweeklyPaymentCents } from '@/lib/amortization'
 import { isAlreadyReversed } from '@/lib/replay'
 
 export const initialState: AppState = {
@@ -15,12 +15,10 @@ export function loanReducer(state: AppState, action: Action): AppState {
     case 'CREATE_LOAN': {
       // 4.2 — compute monthlyPaymentCents here; the form never owns this calculation
       const { principal, annualRate, amortizationYears, frequency, startDate } = action.payload
-      const monthlyPaymentCents = calculateMonthlyPaymentCents(
-        toCents(principal),
-        annualRate,
-        amortizationYears,
-      )
-      const loan: Loan = { principal, annualRate, amortizationYears, frequency, startDate, monthlyPaymentCents }
+      const scheduledPaymentCents = frequency === 'biweekly'
+        ? calculateBiweeklyPaymentCents(toCents(principal), annualRate, amortizationYears)
+        : calculateMonthlyPaymentCents(toCents(principal), annualRate, amortizationYears)
+      const loan: Loan = { principal, annualRate, amortizationYears, frequency, startDate, scheduledPaymentCents }
       const fundingEvent: Extract<LoanEvent, { type: 'funding' }> = {
         id: crypto.randomUUID(),
         type: 'funding',

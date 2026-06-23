@@ -10,7 +10,7 @@ const LOAN: Loan = {
   amortizationYears: 25,
   frequency: 'monthly',
   startDate: '2026-01-01',
-  monthlyPaymentCents: 148980, // $1,489.80 — Canadian semi-annual compounding
+  scheduledPaymentCents: 148980, // $1,489.80 — Canadian semi-annual compounding
 }
 
 const CONVENTION = 'actual365' as const
@@ -232,7 +232,7 @@ describe('replayEvents — additional advance', () => {
     amortizationYears: 25,
     frequency: 'monthly',
     startDate: '2026-01-01',
-    monthlyPaymentCents: 148980,
+    scheduledPaymentCents: 148980,
   }
 
   const events: LoanEvent[] = [
@@ -339,6 +339,71 @@ describe('replayEvents — partial payment', () => {
 // ---------------------------------------------------------------------------
 // isAlreadyReversed + reversal guard (task 13)
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Bi-weekly frequency (task 14.5)
+//
+// $250,000 @ 5.25% / 25yr / bi-weekly / Jan 01 2026
+// Jan 01 → funding
+// Jan 15 → payment $686.80  (14 days of interest)
+// Jan 29 → payment $686.80  (14 days of interest on lower balance)
+// ---------------------------------------------------------------------------
+
+describe('replayEvents — bi-weekly payments', () => {
+  const BIWEEKLY_LOAN: Loan = {
+    principal: 250000,
+    annualRate: 0.0525,
+    amortizationYears: 25,
+    frequency: 'biweekly',
+    startDate: '2026-01-01',
+    scheduledPaymentCents: 68_680,
+  }
+
+  const events: LoanEvent[] = [
+    { id: 'ev-fund',  type: 'funding', date: '2026-01-01', amount: 250000 },
+    { id: 'ev-pay1', type: 'payment',  date: '2026-01-15', amount: 686.80 },
+    { id: 'ev-pay2', type: 'payment',  date: '2026-01-29', amount: 686.80 },
+  ]
+
+  const state = replayEvents(events, BIWEEKLY_LOAN, CONVENTION)
+  const { rows } = state
+
+  it('produces 3 ledger rows', () => {
+    expect(rows).toHaveLength(3)
+  })
+
+  describe('Jan 15 payment — 14 days of interest', () => {
+    const row = rows[1]
+    it('interest = 50,342 cents (Actual/365, 14 days)', () => {
+      expect(row.interestCents).toBe(50_342)
+    })
+    it('principal = 18,338 cents', () => {
+      expect(row.principalCents).toBe(18_338)
+    })
+    it('interest + principal = payment to the exact cent', () => {
+      expect(row.interestCents + row.principalCents).toBe(row.amountCents)
+    })
+    it('balance after = 24,981,662 cents', () => {
+      expect(row.balanceAfterCents).toBe(24_981_662)
+    })
+  })
+
+  describe('Jan 29 payment — 14 days of interest on reduced balance', () => {
+    const row = rows[2]
+    it('interest = 50,306 cents (lower balance → lower interest than first payment)', () => {
+      expect(row.interestCents).toBe(50_306)
+    })
+    it('principal = 18,374 cents', () => {
+      expect(row.principalCents).toBe(18_374)
+    })
+    it('interest + principal = payment to the exact cent', () => {
+      expect(row.interestCents + row.principalCents).toBe(row.amountCents)
+    })
+    it('balance is declining', () => {
+      expect(state.currentBalanceCents).toBeLessThan(24_981_662)
+    })
+  })
+})
 
 describe('isAlreadyReversed', () => {
   const events: LoanEvent[] = [

@@ -1,14 +1,14 @@
 // 2.5
 export type DayCountConvention = 'actual365' | 'thirty360'
 
-// 2.1 — monthlyPaymentCents stored in cents; all other monetary fields in dollars per spec
+// 2.1 — scheduledPaymentCents stored in cents; all other monetary fields in dollars per spec
 export interface Loan {
   principal: number          // dollars
   annualRate: number         // decimal (e.g. 0.05 for 5%)
   amortizationYears: number
-  frequency: 'monthly'
+  frequency: 'monthly' | 'biweekly'
   startDate: string          // ISO date string YYYY-MM-DD
-  monthlyPaymentCents: number
+  scheduledPaymentCents: number
 }
 
 // 2.2 — LoanEvent discriminated union per FR-5.
@@ -59,7 +59,7 @@ export type PostableEvent = Extract<LoanEvent, { type: 'payment' | 'additional_a
 // CREATE_LOAN omits monthlyPaymentCents — the reducer computes it from the other fields.
 // ADD_EVENT omits id — the reducer generates it with crypto.randomUUID().
 export type Action =
-  | { type: 'CREATE_LOAN';    payload: Omit<Loan, 'monthlyPaymentCents'> }
+  | { type: 'CREATE_LOAN';    payload: Omit<Loan, 'scheduledPaymentCents'> }
   | { type: 'RESET_LOAN' }
   | { type: 'ADD_EVENT';      payload: Omit<PostableEvent, 'id'> }
   | { type: 'SET_CONVENTION'; payload: DayCountConvention }

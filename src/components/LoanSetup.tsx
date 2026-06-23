@@ -1,8 +1,15 @@
 import { type Dispatch, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import type { Action } from '@/types/loan'
-import { calculateMonthlyPaymentCents } from '@/lib/amortization'
+import { calculateMonthlyPaymentCents, calculateBiweeklyPaymentCents } from '@/lib/amortization'
 import { toCents, fromCents } from '@/lib/money'
 
 // Exported so App.tsx can own this state, preserving values when the
@@ -11,6 +18,7 @@ export interface LoanFormState {
   principal: string
   annualRate: string
   amortizationYears: string
+  frequency: 'monthly' | 'biweekly'
   startDate: string
   touched: Set<string>
 }
@@ -19,6 +27,7 @@ export const initialLoanFormState: LoanFormState = {
   principal: '',
   annualRate: '',
   amortizationYears: '',
+  frequency: 'monthly',
   startDate: '',
   touched: new Set(),
 }
@@ -45,7 +54,7 @@ export default function LoanSetup({
   formState,
   onFormChange,
 }: LoanSetupProps) {
-  const { principal, annualRate, amortizationYears, startDate, touched } = formState
+  const { principal, annualRate, amortizationYears, frequency, startDate, touched } = formState
 
   const errors = useMemo<FormErrors>(() => {
     const errs: FormErrors = {}
@@ -76,8 +85,10 @@ export default function LoanSetup({
     const r = parseFloat(annualRate) / 100
     const y = parseInt(amortizationYears)
     if (isNaN(p) || p <= 0 || isNaN(r) || r <= 0 || isNaN(y) || y < 1) return null
-    return calculateMonthlyPaymentCents(toCents(p), r, y)
-  }, [principal, annualRate, amortizationYears])
+    return frequency === 'biweekly'
+      ? calculateBiweeklyPaymentCents(toCents(p), r, y)
+      : calculateMonthlyPaymentCents(toCents(p), r, y)
+  }, [principal, annualRate, amortizationYears, frequency])
 
   function touch(field: string) {
     onFormChange({ touched: new Set([...touched, field]) })
@@ -98,7 +109,7 @@ export default function LoanSetup({
         principal: parseFloat(principal),
         annualRate: parseFloat(annualRate) / 100,
         amortizationYears: parseInt(amortizationYears),
-        frequency: 'monthly',
+        frequency,
         startDate,
       },
     })
@@ -200,12 +211,27 @@ export default function LoanSetup({
         )}
       </div>
 
-      {/* Payment Frequency — locked in v1 */}
+      {/* Payment Frequency */}
       <div className="flex flex-col gap-1">
-        <span className="text-sm font-medium text-text-primary">Payment Frequency</span>
-        <div className="flex h-9 items-center rounded-lg border border-border-subtle bg-bg-elevated px-3 text-sm text-text-secondary">
-          Monthly
-        </div>
+        <label id="frequency-label" className="text-sm font-medium text-text-primary">
+          Payment Frequency
+        </label>
+        <Select
+          value={frequency}
+          onValueChange={v => onFormChange({ frequency: v as 'monthly' | 'biweekly' })}
+          disabled={loanExists}
+        >
+          <SelectTrigger
+            className="w-full bg-bg-elevated border border-border-default text-sm text-text-primary"
+            aria-labelledby="frequency-label"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="monthly">Monthly</SelectItem>
+            <SelectItem value="biweekly">Bi-weekly</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Start Date */}
@@ -226,10 +252,10 @@ export default function LoanSetup({
         )}
       </div>
 
-      {/* Live monthly payment preview */}
+      {/* Live payment preview */}
       {previewPaymentCents !== null && (
         <p className="text-sm text-text-secondary">
-          Monthly Payment:{' '}
+          {frequency === 'biweekly' ? 'Bi-weekly' : 'Monthly'} Payment:{' '}
           <span className="font-mono font-medium text-text-primary">
             {fromCents(previewPaymentCents)}
           </span>

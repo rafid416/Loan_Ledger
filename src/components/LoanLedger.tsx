@@ -200,7 +200,7 @@ export default function LoanLedger({
         />
         <StatCard
           label="Next Payment"
-          value={loan && !isPaidOff ? fromCents(loan.monthlyPaymentCents) : null}
+          value={loan && !isPaidOff ? fromCents(loan.scheduledPaymentCents) : null}
         />
         <StatCard
           label="Payoff Today"
