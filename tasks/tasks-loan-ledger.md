@@ -105,7 +105,7 @@
 - [x] 5.0 Build app shell — header, sidebar, layout, theme toggle (traces to: DRD sections 4, 6.1, 6.9)
   - [x] 5.1 Create `src/components/AppHeader.tsx` — full-width sticky header, 48px height, bg-surface, 1px bottom border border-subtle
   - [x] 5.2 Add app title "Loan Ledger" to header left side — 20px font-semibold text-primary
-  - [x] 5.3 Add light/dark mode toggle button to header right — FOUC prevention script in index.html, default dark mode, localStorage persists preference
+  - [x] 5.3 Add light/dark mode toggle button to header right — FOUC prevention script in index.html, default light mode, localStorage persists preference
   - [x] 5.4 Create `src/components/Sidebar.tsx` — expanded (280px) / collapsed (64px) with transition-all duration-200 ease-out motion-reduce:transition-none
   - [x] 5.5 Collapse/expand toggle at bottom — ChevronLeft/ChevronRight
   - [x] 5.6 Collapsed icon rail — Settings (Loan Setup) + Plus (Add Event); clicking expands sidebar and opens that section
