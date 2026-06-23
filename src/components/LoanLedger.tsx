@@ -1,8 +1,11 @@
 import { type Dispatch } from 'react'
 import { format, parseISO } from 'date-fns'
+import { FileDown } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { fromCents } from '@/lib/money'
+import { exportCSV, exportJSON } from '@/lib/export'
 import type { Action, DayCountConvention, LedgerRow, LedgerState, Loan, LoanEvent } from '@/types/loan'
 
 interface LoanLedgerProps {
@@ -222,6 +225,30 @@ export default function LoanLedger({
           label="Payoff Today"
           value={loan ? fromCents(payoffTodayCents) : null}
         />
+      </div>
+
+      {/* Export toolbar */}
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!hasData}
+          onClick={() => exportCSV(ledgerState!.rows, hasEscrow)}
+          className="gap-1.5 text-xs"
+        >
+          <FileDown className="h-3.5 w-3.5" />
+          Export CSV
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!loan || !hasData}
+          onClick={() => exportJSON(events, loan!)}
+          className="gap-1.5 text-xs"
+        >
+          <FileDown className="h-3.5 w-3.5" />
+          Export JSON
+        </Button>
       </div>
 
       {/* Ledger table panel */}

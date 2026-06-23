@@ -225,8 +225,8 @@
   - [x] 15.4 Update replay payment handler — split payment into interest + principal + escrow; NSF reversal backs out escrow from escrowBalanceCents
   - [x] 15.5 Add Escrow column to ledger table and Escrow Balance to stat cards — both hidden when escrowMonthlyCents = 0
 
-- [ ] 16.0 Add CSV/JSON ledger export (traces to: PRD NG-6, prd-loan-ledger-v2.md section 7b)
-  - [ ] 16.1 Create `src/lib/export.ts` — implement `exportCSV(rows: LedgerRow[]): void` using browser Blob API
-  - [ ] 16.2 Implement `exportJSON(events: LoanEvent[], loan: Loan): void` — exports full event list as JSON
-  - [ ] 16.3 Add Export buttons to AppHeader or above ledger — "Export CSV" and "Export JSON", disabled when no events exist
-  - [ ] 16.4 Verify downloaded files open correctly in Excel (CSV) and a text editor (JSON)
+- [x] 16.0 Add CSV/JSON ledger export (traces to: PRD NG-6, prd-loan-ledger-v2.md section 7b)
+  - [x] 16.1 Create `src/lib/export.ts` — implement `exportCSV(rows: LedgerRow[], hasEscrow: boolean): void` using browser Blob API
+  - [x] 16.2 Implement `exportJSON(events: LoanEvent[], loan: Loan): void` — exports full event list + loan terms as JSON
+  - [x] 16.3 Add Export CSV / Export JSON buttons above ledger table — disabled when no events exist
+  - [x] 16.4 Verify downloaded files open correctly in Excel (CSV) and a text editor (JSON)
