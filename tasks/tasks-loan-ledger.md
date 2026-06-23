@@ -173,11 +173,11 @@
   - [x] 9.10 Sidebar collapse check — collapses to 64px icon rail; ledger fills space. Re-expanded to 280px; Principal input remains visible and interactable ✓
   - [x] 9.11 Self-review quality gate — (a) interest + principal = payment by construction (principalCents = paymentCents − interestCents) ✓; (b) pure function with convention in deps — deterministic ✓; (c) NSF uses stored originalRow.principalCents, no re-computation ✓. Bug found and fixed: negative daysToToday when last event is future-dated → Math.max(0, …) clamp in replayEvents and calculatePayoffQuote ✓
 
-- [ ] 10.0 Write NSF replay unit test ⚡ CORE — this proves the headline correctness claim the evaluators will check
-  - [ ] 10.1 Install Vitest: `npm install -D vitest` and add `"test": "vitest run"` to `package.json` scripts
-  - [ ] 10.2 Create `vitest.config.ts` — extend vite config, set environment to `node`
-  - [ ] 10.3 Create `src/lib/__tests__/replay.test.ts` — write the full NSF scenario test: funding Jan 1 → payment Feb 1 → reversal Feb 8 → payment Mar 1. Assert balance after each event matches expected cents value to the exact cent (FR-22)
-  - [ ] 10.4 Run `npx vitest run` — confirm NSF test passes with zero failures
+- [x] 10.0 Write NSF replay unit test ⚡ CORE — this proves the headline correctness claim the evaluators will check
+  - [x] 10.1 Install Vitest: `npm install -D vitest` and add `"test": "vitest run"` to `package.json` scripts
+  - [x] 10.2 Create `vitest.config.ts` — extend vite config, set environment to `node`
+  - [x] 10.3 Create `src/lib/__tests__/replay.test.ts` — full NSF scenario: funding Jan 1 → payment Feb 1 → reversal Feb 8 → payment Mar 1. Asserts exact cents at every step. Also covers getReversibleEvents, pure-function property, and event sort-order invariant. 27 tests total.
+  - [x] 10.4 Run `npx vitest run` — 27/27 passed, 0 failures
 
 ---
 

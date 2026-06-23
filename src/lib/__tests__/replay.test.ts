@@ -1,0 +1,217 @@
+import { describe, it, expect } from 'vitest'
+import { replayEvents, getReversibleEvents } from '@/lib/replay'
+import type { Loan, LoanEvent } from '@/types/loan'
+
+// Reference loan: $250,000 @ 5.25% / 25yr / monthly / Jan 1 2026
+const LOAN: Loan = {
+  principal: 250000,
+  annualRate: 0.0525,
+  amortizationYears: 25,
+  frequency: 'monthly',
+  startDate: '2026-01-01',
+  monthlyPaymentCents: 148980, // $1,489.80 — Canadian semi-annual compounding
+}
+
+const CONVENTION = 'actual365' as const
+
+// ---------------------------------------------------------------------------
+// NSF reversal scenario — the core evaluator test
+//
+// Timeline:
+//   Jan 01 — Funding  $250,000.00
+//   Feb 01 — Payment  $1,489.80   (31 days of interest)
+//   Feb 08 — NSF reversal of Feb 01 payment
+//   Mar 01 — Payment  $1,489.80   (21 days of interest from Feb 08)
+//
+// Key assertions:
+//   1. Each payment: interest + principal = payment to the exact cent
+//   2. NSF restores balance to EXACTLY $250,000.00 (original opening balance)
+//   3. Mar 01 interest runs from Feb 08 (21 days), not Feb 01 (28 days)
+//   4. Original Feb 01 row is marked isReversed=true
+// ---------------------------------------------------------------------------
+
+describe('replayEvents — NSF reversal scenario', () => {
+  const events: LoanEvent[] = [
+    { id: 'ev-fund',    type: 'funding',          date: '2026-01-01', amount: 250000 },
+    { id: 'ev-pay1',   type: 'payment',           date: '2026-02-01', amount: 1489.80 },
+    { id: 'ev-nsf',    type: 'payment_reversal',  date: '2026-02-08', reversesEventId: 'ev-pay1' },
+    { id: 'ev-pay2',   type: 'payment',           date: '2026-03-01', amount: 1489.80 },
+  ]
+
+  const state = replayEvents(events, LOAN, CONVENTION)
+  const { rows } = state
+
+  it('produces 4 ledger rows in chronological order', () => {
+    expect(rows).toHaveLength(4)
+    expect(rows[0].type).toBe('funding')
+    expect(rows[1].type).toBe('payment')
+    expect(rows[2].type).toBe('payment_reversal')
+    expect(rows[3].type).toBe('payment')
+  })
+
+  describe('Jan 01 — funding row', () => {
+    const row = rows[0]
+    it('opening balance = 25,000,000 cents', () => {
+      expect(row.balanceAfterCents).toBe(25_000_000)
+    })
+    it('amount = 25,000,000 cents', () => {
+      expect(row.amountCents).toBe(25_000_000)
+    })
+    it('is not reversed', () => {
+      expect(row.isReversed).toBe(false)
+    })
+  })
+
+  describe('Feb 01 — payment row (31 days from Jan 01)', () => {
+    const row = rows[1]
+    // Actual/365: Math.round(25_000_000 * 0.0525 / 365 * 31) = 111,473
+    it('interest = 111,473 cents ($1,114.73)', () => {
+      expect(row.interestCents).toBe(111_473)
+    })
+    // principal = payment - interest = 148,980 - 111,473 = 37,507
+    it('principal = 37,507 cents ($375.07)', () => {
+      expect(row.principalCents).toBe(37_507)
+    })
+    it('interest + principal = payment to the exact cent', () => {
+      expect(row.interestCents + row.principalCents).toBe(row.amountCents)
+    })
+    // balance = 25,000,000 - 37,507 = 24,962,493
+    it('balance after = 24,962,493 cents ($249,624.93)', () => {
+      expect(row.balanceAfterCents).toBe(24_962_493)
+    })
+    it('is marked isReversed after the NSF event is processed', () => {
+      expect(row.isReversed).toBe(true)
+    })
+    it('reversedByEventId points to the NSF event', () => {
+      expect(row.reversedByEventId).toBe('ev-nsf')
+    })
+  })
+
+  describe('Feb 08 — NSF reversal row', () => {
+    const row = rows[2]
+    it('balance restored to exactly 25,000,000 cents ($250,000.00)', () => {
+      // The reversal adds back the EXACT principalCents from the original row,
+      // restoring the balance to the pre-payment amount without re-computing anything.
+      expect(row.balanceAfterCents).toBe(25_000_000)
+    })
+    it('reversal row amount/interest/principal are all 0', () => {
+      expect(row.amountCents).toBe(0)
+      expect(row.interestCents).toBe(0)
+      expect(row.principalCents).toBe(0)
+    })
+    it('reversesEventId points to the original payment', () => {
+      expect(row.reversesEventId).toBe('ev-pay1')
+    })
+    it('reversal row itself is not reversed', () => {
+      expect(row.isReversed).toBe(false)
+    })
+    it('date is the reversal date (Feb 08)', () => {
+      expect(row.date).toBe('2026-02-08')
+    })
+  })
+
+  describe('Mar 01 — payment row (21 days from Feb 08, not 28 days from Feb 01)', () => {
+    const row = rows[3]
+    // Actual/365: Math.round(25_000_000 * 0.0525 / 365 * 21) = 75,514
+    it('interest = 75,514 cents ($755.14) — 21 days from Feb 08', () => {
+      expect(row.interestCents).toBe(75_514)
+    })
+    // principal = 148,980 - 75,514 = 73,466
+    it('principal = 73,466 cents ($734.66)', () => {
+      expect(row.principalCents).toBe(73_466)
+    })
+    it('interest + principal = payment to the exact cent', () => {
+      expect(row.interestCents + row.principalCents).toBe(row.amountCents)
+    })
+    // balance = 25,000,000 - 73,466 = 24,926,534
+    it('balance after = 24,926,534 cents ($249,265.34)', () => {
+      expect(row.balanceAfterCents).toBe(24_926_534)
+    })
+    it('is not reversed', () => {
+      expect(row.isReversed).toBe(false)
+    })
+  })
+
+  describe('final ledger state', () => {
+    it('currentBalanceCents = 24,926,534', () => {
+      expect(state.currentBalanceCents).toBe(24_926_534)
+    })
+    it('Mar 01 interest would be higher if window ran from Feb 01 (28 days)', () => {
+      // 28-day interest would be: Math.round(25_000_000 * 0.0525 / 365 * 28) = 100,685
+      // Actual 21-day interest is 75,514 — proves clock reset to reversal date
+      const hypothetical28DayInterest = Math.round(25_000_000 * 0.0525 / 365 * 28)
+      expect(hypothetical28DayInterest).toBe(100_685)
+      expect(rows[3].interestCents).toBeLessThan(hypothetical28DayInterest)
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// getReversibleEvents — filters out already-reversed payments
+// ---------------------------------------------------------------------------
+
+describe('getReversibleEvents', () => {
+  it('excludes payments that have been reversed', () => {
+    const events: LoanEvent[] = [
+      { id: 'ev-fund',  type: 'funding',         date: '2026-01-01', amount: 250000 },
+      { id: 'ev-pay1', type: 'payment',           date: '2026-02-01', amount: 1489.80 },
+      { id: 'ev-nsf',  type: 'payment_reversal', date: '2026-02-08', reversesEventId: 'ev-pay1' },
+      { id: 'ev-pay2', type: 'payment',           date: '2026-03-01', amount: 1489.80 },
+    ]
+    const reversible = getReversibleEvents(events)
+    expect(reversible).toHaveLength(1)
+    expect(reversible[0].id).toBe('ev-pay2')
+  })
+
+  it('returns all payments and advances when none are reversed', () => {
+    const events: LoanEvent[] = [
+      { id: 'ev-fund',  type: 'funding',          date: '2026-01-01', amount: 250000 },
+      { id: 'ev-pay1', type: 'payment',            date: '2026-02-01', amount: 1489.80 },
+      { id: 'ev-adv',  type: 'additional_advance', date: '2026-02-15', amount: 5000 },
+    ]
+    const reversible = getReversibleEvents(events)
+    expect(reversible).toHaveLength(2)
+  })
+
+  it('excludes funding events (not reversible)', () => {
+    const events: LoanEvent[] = [
+      { id: 'ev-fund', type: 'funding', date: '2026-01-01', amount: 250000 },
+    ]
+    const reversible = getReversibleEvents(events)
+    expect(reversible).toHaveLength(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Replay is a pure function — same inputs always produce the same output
+// ---------------------------------------------------------------------------
+
+describe('replayEvents — pure function', () => {
+  it('produces identical results on repeated calls with the same inputs', () => {
+    const events: LoanEvent[] = [
+      { id: 'ev-fund',  type: 'funding', date: '2026-01-01', amount: 250000 },
+      { id: 'ev-pay1', type: 'payment',  date: '2026-02-01', amount: 1489.80 },
+    ]
+    const result1 = replayEvents(events, LOAN, CONVENTION)
+    const result2 = replayEvents(events, LOAN, CONVENTION)
+    expect(result1.currentBalanceCents).toBe(result2.currentBalanceCents)
+    expect(result1.rows[1].interestCents).toBe(result2.rows[1].interestCents)
+    expect(result1.rows[1].principalCents).toBe(result2.rows[1].principalCents)
+  })
+
+  it('sorts events by date regardless of insertion order', () => {
+    const eventsOutOfOrder: LoanEvent[] = [
+      { id: 'ev-pay1', type: 'payment', date: '2026-02-01', amount: 1489.80 },
+      { id: 'ev-fund', type: 'funding', date: '2026-01-01', amount: 250000 },
+    ]
+    const eventsInOrder: LoanEvent[] = [
+      { id: 'ev-fund', type: 'funding', date: '2026-01-01', amount: 250000 },
+      { id: 'ev-pay1', type: 'payment', date: '2026-02-01', amount: 1489.80 },
+    ]
+    const r1 = replayEvents(eventsOutOfOrder, LOAN, CONVENTION)
+    const r2 = replayEvents(eventsInOrder, LOAN, CONVENTION)
+    expect(r1.currentBalanceCents).toBe(r2.currentBalanceCents)
+    expect(r1.rows[0].type).toBe('funding')
+    expect(r1.rows[1].type).toBe('payment')
+  })
+})
