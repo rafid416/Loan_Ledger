@@ -31,7 +31,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-bg-base">
-      <AppHeader />
+      <AppHeader convention={state.convention} dispatch={dispatch} />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
           openSection={sidebarSection}
@@ -62,6 +62,7 @@ export default function App() {
             selectedEventId={state.selectedEventId}
             dispatch={dispatch}
             payoffTodayCents={payoffTodayCents}
+            convention={state.convention}
           />
         </main>
       </div>

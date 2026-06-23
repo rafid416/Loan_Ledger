@@ -1,8 +1,14 @@
-import { useState } from 'react'
+import { type Dispatch, useState } from 'react'
 import { Sun, Moon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import type { Action, DayCountConvention } from '@/types/loan'
 
-export default function AppHeader() {
+interface AppHeaderProps {
+  convention: DayCountConvention
+  dispatch: Dispatch<Action>
+}
+
+export default function AppHeader({ convention, dispatch }: AppHeaderProps) {
   const [isDark, setIsDark] = useState(() =>
     document.documentElement.classList.contains('dark'),
   )
@@ -19,17 +25,52 @@ export default function AppHeader() {
     }
   }
 
+  function setConvention(value: DayCountConvention) {
+    dispatch({ type: 'SET_CONVENTION', payload: value })
+  }
+
+  const segments: { label: string; value: DayCountConvention }[] = [
+    { label: 'Actual/365', value: 'actual365' },
+    { label: '30/360', value: 'thirty360' },
+  ]
+
   return (
     <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between border-b border-border-subtle bg-bg-surface px-4">
       <span className="text-[20px] font-semibold text-text-primary">Loan Ledger</span>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={toggleTheme}
-        aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-      >
-        {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-      </Button>
+
+      <div className="flex items-center gap-3">
+        {/* Day-count convention toggle */}
+        <div
+          className="flex rounded-md border border-border-subtle bg-bg-elevated text-xs"
+          role="radiogroup"
+          aria-label="Day-count convention"
+        >
+          {segments.map(seg => (
+            <button
+              key={seg.value}
+              role="radio"
+              aria-checked={convention === seg.value}
+              onClick={() => setConvention(seg.value)}
+              className={
+                convention === seg.value
+                  ? 'rounded-md bg-bg-active px-3 py-1 font-medium text-text-primary transition-colors'
+                  : 'rounded-md px-3 py-1 text-text-secondary transition-colors hover:text-text-primary'
+              }
+            >
+              {seg.label}
+            </button>
+          ))}
+        </div>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleTheme}
+          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+        </Button>
+      </div>
     </header>
   )
 }

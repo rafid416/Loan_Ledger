@@ -3,7 +3,7 @@ import { format, parseISO } from 'date-fns'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { fromCents } from '@/lib/money'
-import type { Action, LedgerRow, LedgerState, Loan, LoanEvent } from '@/types/loan'
+import type { Action, DayCountConvention, LedgerRow, LedgerState, Loan, LoanEvent } from '@/types/loan'
 
 interface LoanLedgerProps {
   loan: Loan | null
@@ -12,6 +12,7 @@ interface LoanLedgerProps {
   selectedEventId: string | null
   dispatch: Dispatch<Action>
   payoffTodayCents: number
+  convention: DayCountConvention
 }
 
 // ── Stat card ──────────────────────────────────────────────────────────────
@@ -176,6 +177,7 @@ export default function LoanLedger({
   selectedEventId,
   dispatch,
   payoffTodayCents,
+  convention,
 }: LoanLedgerProps) {
   const isPaidOff = events.some(e => e.type === 'payoff')
   const hasData = ledgerState !== null && ledgerState.rows.length > 0
@@ -276,12 +278,29 @@ export default function LoanLedger({
           </table>
         </div>
 
-        {/* Limitation note — always visible, not part of scroll */}
+        {/* Convention note + per-diem comparison */}
         <div className="border-t border-border-subtle px-4 py-2">
-          <p className="text-[11px] text-text-muted">
-            Interest calculated using Actual/365. Leap years use a fixed
-            365-day denominator.
-          </p>
+          {ledgerState && loan ? (() => {
+            const bal = ledgerState.currentBalanceCents
+            const rate = loan.annualRate
+            const pd365 = Math.round(bal * rate / 365)
+            const pd360 = Math.round(bal * rate / 360)
+            return (
+              <p className="text-[11px] text-text-muted">
+                {convention === 'actual365'
+                  ? 'Actual/365 active — leap years use a fixed 365-day denominator.'
+                  : '30/360 active — each month treated as 30 days.'}
+                {' '}
+                Per diem: Actual/365 {fromCents(pd365)} · 30/360 {fromCents(pd360)}
+              </p>
+            )
+          })() : (
+            <p className="text-[11px] text-text-muted">
+              {convention === 'actual365'
+                ? 'Actual/365 active — leap years use a fixed 365-day denominator.'
+                : '30/360 active — each month treated as 30 days.'}
+            </p>
+          )}
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { parseISO } from 'date-fns'
 import type { DayCountConvention, LedgerRow, LedgerState, Loan, LoanEvent } from '@/types/loan'
 import { toCents } from '@/lib/money'
-import { daysBetween } from '@/lib/daycount'
+import { daysFor } from '@/lib/daycount'
 import { calculateInterestCents } from '@/lib/interest'
 
 // Pure function — same inputs always produce the same ledger.
@@ -45,7 +45,7 @@ export function replayEvents(
 
       case 'payment': {
         // 3.6 — interest accrues from last event date to this payment date
-        const days = daysBetween(lastEventDate, event.date)
+        const days = daysFor(lastEventDate, event.date, convention)
         const interestCents = calculateInterestCents(balanceCents, loan.annualRate, days, convention)
         const paymentCents = toCents(event.amount)
         const principalCents = paymentCents - interestCents
@@ -122,7 +122,7 @@ export function replayEvents(
 
       case 'payoff': {
         // 3.9 — interest accrues from last event to payoff date; then balance goes to zero
-        const days = daysBetween(lastEventDate, event.date)
+        const days = daysFor(lastEventDate, event.date, convention)
         const interestCents = calculateInterestCents(balanceCents, loan.annualRate, days, convention)
         const totalPayoffCents = balanceCents + interestCents
         balanceCents = 0
@@ -148,7 +148,7 @@ export function replayEvents(
   // Accrued interest = interest that would accrue today if a payment were made right now.
   // Only meaningful if loan is open (no payoff event).
   const isPayedOff = events.some(e => e.type === 'payoff')
-  const daysToToday = Math.max(0, daysBetween(lastEventDate, new Date().toISOString().slice(0, 10)))
+  const daysToToday = Math.max(0, daysFor(lastEventDate, new Date().toISOString().slice(0, 10), convention))
   const accruedInterestCents = isPayedOff
     ? 0
     : calculateInterestCents(balanceCents, loan.annualRate, daysToToday, convention)
@@ -174,7 +174,7 @@ export function calculatePayoffQuote(
 
   const lastRow = state.rows[state.rows.length - 1]
   const lastDate = lastRow?.date ?? loan.startDate
-  const days = Math.max(0, daysBetween(lastDate, asOfDate))
+  const days = Math.max(0, daysFor(lastDate, asOfDate, convention))
   const interestCents = calculateInterestCents(
     state.currentBalanceCents,
     loan.annualRate,

@@ -192,13 +192,13 @@
   - [x] 11.5 Add partial payment test — $500 payment on $250k loan: principal negative, isNegativePrincipal=true, balance increases, still reconciles to cent
   - [x] 11.6 Run `npx vitest run` — 53/53 passed across 3 test files
 
-- [ ] 12.0 Implement day-count convention toggle (traces to: FR-19, FR-20, FR-21, DRD 6.8)
-  - [ ] 12.1 Add `thirtyThreeSixtyDays(dateA: string, dateB: string): number` to `src/lib/daycount.ts` — formula: `(Y2-Y1)×360 + (M2-M1)×30 + (D2-D1)` per FR-20
-  - [ ] 12.2 Add day-count toggle to `AppHeader.tsx` — segmented control showing "Actual/365 | 30/360". Active option: bg-active text-primary. Inactive: text-secondary (DRD 6.8)
-  - [ ] 12.3 Wire toggle to dispatch `SET_CONVENTION` — confirm all ledger figures update immediately via the existing `useMemo` dependency on `convention` (FR-21)
-  - [ ] 12.4 Update `calculatePayoffQuote` call in App.tsx to pass the active convention
-  - [ ] 12.5 Add per-diem comparison display — below ledger or in stat cards area, show "Per diem (Actual/365): $35.96 | Per diem (30/360): $36.46" so the difference is visible (FR-21)
-  - [ ] 12.6 Verify toggle by checking: same loan, both conventions produce different interest figures. Toggling back to Actual/365 restores original figures exactly.
+- [x] 12.0 Implement day-count convention toggle (traces to: FR-19, FR-20, FR-21, DRD 6.8)
+  - [x] 12.1 Add `thirtyThreeSixtyDays(dateA: string, dateB: string): number` to `src/lib/daycount.ts` — formula: `(Y2-Y1)×360 + (M2-M1)×30 + (D2-D1)` per FR-20
+  - [x] 12.2 Add day-count toggle to `AppHeader.tsx` — segmented control showing "Actual/365 | 30/360". Active option: bg-active text-primary. Inactive: text-secondary (DRD 6.8)
+  - [x] 12.3 Wire toggle to dispatch `SET_CONVENTION` — confirm all ledger figures update immediately via the existing `useMemo` dependency on `convention` (FR-21)
+  - [x] 12.4 Update `calculatePayoffQuote` call in App.tsx to pass the active convention — also updated replay.ts to use `daysFor()` dispatcher for both payment and payoff cases
+  - [x] 12.5 Add per-diem comparison display — footer shows "Per diem: Actual/365 $X · 30/360 $Y" when a loan is loaded (FR-21)
+  - [x] 12.6 Verify toggle by checking: same loan, both conventions produce different interest figures. Toggling back to Actual/365 restores original figures exactly.
 
 ---
 
