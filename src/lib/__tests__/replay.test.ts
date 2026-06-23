@@ -856,3 +856,76 @@ describe('replayEvents — consecutive NSF reversals (interest-clock walk-back)'
     }
   })
 })
+
+// ---------------------------------------------------------------------------
+// Reversal-after-advance — regression test for dropped pending interest.
+//
+// When an advance parks a pre-advance sub-period's interest in the pending
+// accumulator, and the payment that SWEEPS that pending is later NSF'd, the
+// reversal must restore the pending — otherwise that sub-period's interest is
+// lost (the bounced payment never cleared, but the clock restart accrues only
+// on the post-advance balance going forward).
+//
+//   Fund $100,000 Jan 01 (no escrow)
+//   Advance +$50,000 Feb 01  → parks Jan 01→Feb 01 interest on $100k = $591.97
+//   Payment  $1,000 Mar 01    → sweeps pending $591.97 + current period
+//   NSF the Mar 01 payment (Mar 05)
+//   Payment  $1,000 Apr 01    → MUST still owe the $591.97 (accrues from Feb 01)
+// ---------------------------------------------------------------------------
+
+describe('replayEvents — reversal restores swept advance interest', () => {
+  const LOAN: Loan = {
+    principal: 100000,
+    annualRate: 0.0697,
+    amortizationYears: 25,
+    frequency: 'monthly',
+    startDate: '2026-01-01',
+    scheduledPaymentCents: 100_000, // not used by this path
+    escrowMonthlyCents: 0,
+  }
+
+  const events: LoanEvent[] = [
+    { id: 'ev-fund', type: 'funding',            date: '2026-01-01', amount: 100000 },
+    { id: 'ev-adv',  type: 'additional_advance', date: '2026-02-01', amount: 50000 },
+    { id: 'ev-p1',   type: 'payment',            date: '2026-03-01', amount: 1000 },
+    { id: 'ev-nsf',  type: 'payment_reversal',   date: '2026-03-05', reversesEventId: 'ev-p1' },
+    { id: 'ev-p2',   type: 'payment',            date: '2026-04-01', amount: 1000 },
+  ]
+
+  // The disputed sub-period: Jan 01 → Feb 01 (31 days) on the pre-advance $100k.
+  const PRE_ADVANCE_SUBPERIOD = Math.round(10_000_000 * 0.0697 * 31 / 365) // 59,197 = $591.97
+
+  const state = replayEvents(events, LOAN, CONVENTION)
+  const { rows } = state
+
+  it('the parked sub-period is $591.97', () => {
+    expect(PRE_ADVANCE_SUBPERIOD).toBe(59_197)
+  })
+
+  it('Mar 01 payment sweeps the pending: interest = $591.97 + Feb→Mar on $150k', () => {
+    const febToMar = Math.round(15_000_000 * 0.0697 * 28 / 365) // 80,203
+    expect(rows[2].interestCents).toBe(PRE_ADVANCE_SUBPERIOD + febToMar)
+    expect(rows[2].interestCents).toBe(139_400)
+  })
+
+  it('reversal restores balance to the post-advance $150,000.00', () => {
+    expect(rows[3].balanceAfterCents).toBe(15_000_000)
+  })
+
+  describe('Apr 01 payment — the swept interest must NOT be lost', () => {
+    const row = rows[4]
+    // Correct: pending $591.97 (restored) + Feb 01→Apr 01 (59 days) on $150k.
+    const febToApr = Math.round(15_000_000 * 0.0697 * 59 / 365) // 168,999
+    it('interest = restored pending + current period = $2,281.96', () => {
+      expect(row.interestCents).toBe(PRE_ADVANCE_SUBPERIOD + febToApr)
+      expect(row.interestCents).toBe(228_196)
+    })
+    it('is strictly greater than the buggy value that dropped the pending ($1,689.99)', () => {
+      expect(row.interestCents).toBeGreaterThan(febToApr) // 168,999 was the dropped-interest result
+      expect(row.interestCents - febToApr).toBe(PRE_ADVANCE_SUBPERIOD)
+    })
+    it('still reconciles to the cent', () => {
+      expect(row.interestCents + row.principalCents + row.escrowCents).toBe(row.amountCents)
+    })
+  })
+})

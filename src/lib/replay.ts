@@ -24,6 +24,11 @@ export function replayEvents(
   // Interest accrued on pre-advance balance sub-periods, carried forward to the next
   // payment or payoff. Each advance closes the prior sub-period into this accumulator.
   let pendingInterestCents = 0
+  // Records, per payment id, the pending sub-period interest that payment swept when
+  // applied (non-zero only when an advance preceded it). On reversal the value is
+  // restored to pendingInterestCents so the advance interest is not lost when the
+  // collecting payment is backed out. Empty for any loan without advances.
+  const pendingConsumedByEventId = new Map<string, number>()
 
   for (const event of sorted) {
     switch (event.type) {
@@ -53,6 +58,8 @@ export function replayEvents(
         // Pending is non-zero when advances occurred since the last payment or funding.
         const days = daysFor(lastEventDate, event.date, convention)
         const interestCents = pendingInterestCents + calculateInterestCents(balanceCents, loan.annualRate, days, convention)
+        // Record the pending the payment consumed so a reversal can restore it.
+        if (pendingInterestCents !== 0) pendingConsumedByEventId.set(event.id, pendingInterestCents)
         pendingInterestCents = 0
 
         const escrowCents = loan.frequency === 'biweekly'
@@ -130,8 +137,11 @@ export function replayEvents(
         // Restore balance and escrow from the exact principal/escrow recorded on the row
         balanceCents = balanceCents + originalRow.principalCents
         escrowBalanceCents = escrowBalanceCents - originalRow.escrowCents
-        // Clear pending interest: the clock resets to before the reversed payment
-        pendingInterestCents = 0
+        // Restore any advance sub-period interest the reversed payment had swept. The
+        // clock resets to before the payment (below), so this pending is re-collected
+        // by the next payment instead of being silently dropped. 0 for the common
+        // (no preceding advance) case, making this a no-op there.
+        pendingInterestCents = pendingConsumedByEventId.get(event.reversesEventId) ?? 0
 
         // Walk back to the last event that actually established the balance, skipping
         // prior reversal rows (administrative markers, no balance impact) and already-
