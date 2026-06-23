@@ -39,9 +39,9 @@ export default function AppHeader({ convention, dispatch }: AppHeaderProps) {
       <span className="text-[20px] font-semibold text-text-primary">Loan Ledger</span>
 
       <div className="flex items-center gap-3">
-        {/* Day-count convention toggle */}
+        {/* Day-count convention segmented control */}
         <div
-          className="flex rounded-md border border-border-subtle bg-bg-elevated text-xs"
+          className="inline-flex items-center gap-0.5 rounded-lg bg-bg-elevated p-1"
           role="radiogroup"
           aria-label="Day-count convention"
         >
@@ -53,8 +53,8 @@ export default function AppHeader({ convention, dispatch }: AppHeaderProps) {
               onClick={() => setConvention(seg.value)}
               className={
                 convention === seg.value
-                  ? 'rounded-md bg-bg-active px-3 py-1 font-medium text-text-primary transition-colors'
-                  : 'rounded-md px-3 py-1 text-text-secondary transition-colors hover:text-text-primary'
+                  ? 'rounded-md bg-bg-surface dark:bg-zinc-700 px-3 py-1 text-xs font-medium text-text-primary shadow-sm ring-1 ring-border-subtle transition-all'
+                  : 'rounded-md px-3 py-1 text-xs text-text-secondary transition-all hover:text-text-primary'
               }
             >
               {seg.label}
