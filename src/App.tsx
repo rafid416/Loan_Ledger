@@ -4,6 +4,7 @@ import { replayEvents } from '@/lib/replay'
 import AppHeader from '@/components/AppHeader'
 import Sidebar from '@/components/Sidebar'
 import LoanSetup, { type LoanFormState, initialLoanFormState } from '@/components/LoanSetup'
+import AddEvent from '@/components/AddEvent'
 
 export default function App() {
   const [state, dispatch] = useReducer(loanReducer, initialState)
@@ -37,6 +38,14 @@ export default function App() {
               onLoanCreated={() => setSidebarSection('add-event')}
               formState={loanForm}
               onFormChange={updateLoanForm}
+            />
+          }
+          addEventSlot={
+            <AddEvent
+              loan={state.loan}
+              events={state.events}
+              selectedEventId={state.selectedEventId}
+              dispatch={dispatch}
             />
           }
         />
