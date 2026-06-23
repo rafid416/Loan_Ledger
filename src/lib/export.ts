@@ -7,8 +7,11 @@ function downloadBlob(content: string, filename: string, mimeType: string): void
   const a = document.createElement('a')
   a.href = url
   a.download = filename
+  document.body.appendChild(a)
   a.click()
-  URL.revokeObjectURL(url)
+  document.body.removeChild(a)
+  // Delay revoke so the browser has time to start the download before the URL is released.
+  setTimeout(() => URL.revokeObjectURL(url), 100)
 }
 
 function dec(cents: number): string {
@@ -65,8 +68,8 @@ export function exportJSON(events: LoanEvent[], loan: Loan): void {
       amortizationYears: loan.amortizationYears,
       frequency: loan.frequency,
       startDate: loan.startDate,
-      scheduledPayment: parseFloat(dec(loan.scheduledPaymentCents)),
-      escrowMonthly: parseFloat(dec(loan.escrowMonthlyCents)),
+      scheduledPayment: loan.scheduledPaymentCents / 100,
+      escrowMonthly: loan.escrowMonthlyCents / 100,
     },
     events,
   }

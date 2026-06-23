@@ -1,6 +1,6 @@
 import { useMemo, useReducer, useState } from 'react'
 import { loanReducer, initialState } from '@/reducer/loanReducer'
-import { replayEvents, calculatePayoffQuote } from '@/lib/replay'
+import { replayEvents } from '@/lib/replay'
 import AppHeader from '@/components/AppHeader'
 import Sidebar from '@/components/Sidebar'
 import LoanSetup, { type LoanFormState, initialLoanFormState } from '@/components/LoanSetup'
@@ -9,7 +9,7 @@ import LoanLedger from '@/components/LoanLedger'
 
 export default function App() {
   const [state, dispatch] = useReducer(loanReducer, initialState)
-  const [sidebarSection, setSidebarSection] = useState<string>('loan-setup')
+  const [sidebarSection, setSidebarSection] = useState<'loan-setup' | 'add-event' | ''>('loan-setup')
 
   // Lifted out of LoanSetup so values survive when Radix unmounts the accordion panel
   const [loanForm, setLoanForm] = useState<LoanFormState>(initialLoanFormState)
@@ -21,13 +21,6 @@ export default function App() {
     () => (state.loan ? replayEvents(state.events, state.loan, state.convention) : null),
     [state.events, state.loan, state.convention],
   )
-
-  // Live payoff quote as of today — non-mutating, passed to LoanLedger stat card
-  const payoffTodayCents = useMemo(() => {
-    if (!state.loan) return 0
-    const today = new Date().toISOString().slice(0, 10)
-    return calculatePayoffQuote(state.events, state.loan, state.convention, today)
-  }, [state.events, state.loan, state.convention])
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-bg-base">
@@ -61,7 +54,7 @@ export default function App() {
             events={state.events}
             selectedEventId={state.selectedEventId}
             dispatch={dispatch}
-            payoffTodayCents={payoffTodayCents}
+            payoffTodayCents={ledgerState?.payoffTodayCents ?? 0}
             convention={state.convention}
           />
         </main>

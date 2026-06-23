@@ -97,12 +97,14 @@ function TypeBadge({ row, events }: { row: LedgerRow; events: LoanEvent[] }) {
 
 function LedgerRow({
   row,
+  rows,
   events,
   isSelected,
   dispatch,
   hasEscrow,
 }: {
   row: LedgerRow
+  rows: LedgerRow[]
   events: LoanEvent[]
   isSelected: boolean
   dispatch: Dispatch<Action>
@@ -111,12 +113,20 @@ function LedgerRow({
   const isClickable = row.type === 'payment' || row.type === 'additional_advance'
   const isReversal = row.type === 'payment_reversal'
   const hasInterestSplit = row.type === 'payment' || row.type === 'payoff'
+  const originalRow = isReversal ? rows.find(r => r.eventId === row.reversesEventId) : undefined
 
   const rowStyle: React.CSSProperties = isSelected
     ? { boxShadow: 'inset 2px 0 0 var(--color-accent-primary)' }
     : isReversal
       ? { boxShadow: 'inset 2px 0 0 var(--color-accent-error)' }
       : {}
+
+  // Renders the original payment's value crossed out on a reversal row.
+  // Shows '—' only if the original row can't be found (shouldn't happen).
+  function reversedCell(valueCents: number | undefined) {
+    if (valueCents === undefined) return '—'
+    return <span className="line-through text-accent-error/60">{fromCents(valueCents)}</span>
+  }
 
   return (
     <tr
@@ -146,28 +156,34 @@ function LedgerRow({
 
       {/* Amount */}
       <td className="px-3 text-right font-mono text-sm text-text-primary whitespace-nowrap">
-        {isReversal ? '—' : fromCents(row.amountCents)}
+        {isReversal ? reversedCell(originalRow?.amountCents) : fromCents(row.amountCents)}
       </td>
 
-      {/* Interest — only meaningful for payment and payoff */}
+      {/* Interest */}
       <td className="px-3 text-right font-mono text-sm text-text-primary whitespace-nowrap">
-        {hasInterestSplit ? fromCents(row.interestCents) : '—'}
+        {isReversal
+          ? reversedCell(originalRow?.interestCents)
+          : hasInterestSplit ? fromCents(row.interestCents) : '—'}
       </td>
 
-      {/* Principal — only meaningful for payment and payoff; red when negative */}
+      {/* Principal */}
       <td
         className={cn(
           'px-3 text-right font-mono text-sm whitespace-nowrap',
-          row.isNegativePrincipal ? 'text-accent-error' : 'text-text-primary',
+          !isReversal && row.isNegativePrincipal ? 'text-accent-error' : 'text-text-primary',
         )}
       >
-        {hasInterestSplit ? fromCents(row.principalCents) : '—'}
+        {isReversal
+          ? reversedCell(originalRow?.principalCents)
+          : hasInterestSplit ? fromCents(row.principalCents) : '—'}
       </td>
 
       {/* Escrow — only shown when loan has escrow configured */}
       {hasEscrow && (
         <td className="px-3 text-right font-mono text-sm text-text-primary whitespace-nowrap">
-          {row.type === 'payment' ? fromCents(row.escrowCents) : '—'}
+          {isReversal
+            ? reversedCell(originalRow?.escrowCents)
+            : row.type === 'payment' ? fromCents(row.escrowCents) : '—'}
         </td>
       )}
 
@@ -212,7 +228,11 @@ export default function LoanLedger({
         />
         <StatCard
           label="Next Payment"
-          value={loan && !isPaidOff ? fromCents(loan.scheduledPaymentCents + loan.escrowMonthlyCents) : null}
+          value={loan && !isPaidOff ? fromCents(
+            loan.scheduledPaymentCents + (loan.frequency === 'biweekly'
+              ? Math.round(loan.escrowMonthlyCents * 12 / 26)
+              : loan.escrowMonthlyCents)
+          ) : null}
         />
         {hasEscrow && (
           <StatCard
@@ -294,6 +314,7 @@ export default function LoanLedger({
                   <LedgerRow
                     key={row.eventId}
                     row={row}
+                    rows={ledgerState!.rows}
                     events={events}
                     isSelected={row.eventId === selectedEventId}
                     dispatch={dispatch}
@@ -333,7 +354,7 @@ export default function LoanLedger({
             <button
               disabled={!hasData}
               onClick={() => exportCSV(ledgerState!.rows, hasEscrow)}
-              className="flex h-7 items-center gap-1 rounded-md border border-border-default bg-bg-elevated px-2.5 text-[11px] text-text-primary transition-colors hover:bg-bg-hover dark:hover:bg-bg-active disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-7 items-center gap-1 rounded-md border border-border-default bg-bg-elevated px-2.5 text-[11px] text-text-primary transition-colors hover:bg-bg-hover dark:hover:bg-bg-active disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-bg-elevated dark:disabled:hover:bg-bg-elevated"
             >
               <FileDown className="h-3 w-3" />
               CSV
@@ -341,7 +362,7 @@ export default function LoanLedger({
             <button
               disabled={!loan || !hasData}
               onClick={() => exportJSON(events, loan!)}
-              className="flex h-7 items-center gap-1 rounded-md border border-border-default bg-bg-elevated px-2.5 text-[11px] text-text-primary transition-colors hover:bg-bg-hover dark:hover:bg-bg-active disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-7 items-center gap-1 rounded-md border border-border-default bg-bg-elevated px-2.5 text-[11px] text-text-primary transition-colors hover:bg-bg-hover dark:hover:bg-bg-active disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-bg-elevated dark:disabled:hover:bg-bg-elevated"
             >
               <FileDown className="h-3 w-3" />
               JSON

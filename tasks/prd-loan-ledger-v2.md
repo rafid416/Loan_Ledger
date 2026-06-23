@@ -89,14 +89,16 @@ type LoanEvent =
 - **FR-11 [Must Have]:** Loan state (balance, ledger rows, summary figures) shall be computed by a pure replay function: `replayEvents(events: LoanEvent[], loan: Loan): LedgerState`. Given the same inputs it always returns the same output. *Traces to: G-1*
 - **FR-12 [Must Have]:** The replay function shall walk events in chronological order. For each event it shall calculate interest accrued since the previous event date, then apply the event's effect on the balance. *Traces to: G-1, US-3*
 - **FR-13 [Must Have]:** A `payment_reversal` event shall back out the original payment's principal and interest, restoring the balance to what it was immediately before that payment. The reversal does not re-calculate interest — it reverses the exact amounts from the original payment row. *Traces to: US-5*
-- **FR-14 [Must Have]:** After a reversal, interest continues accruing from the reversal event date on the restored balance. The next payment's interest window starts from the reversal date, not the original payment date. *Traces to: US-5*
+- **FR-14 [Must Have]:** After a reversal, the interest clock resets to the **date of the last valid event before the reversed payment** (i.e. the event immediately preceding it in the sorted event log). Because the payment never actually cleared, interest has been accruing on the restored balance since the previous payment — not from the NSF payment date or the reversal date. This may cause the next payment to show negative amortization if the accrued interest exceeds the scheduled payment amount. *Traces to: US-5*
 
 **Example — NSF scenario:**
 ```
 Jan 1   funding:   $250,000.00   balance: $250,000.00
-Feb 1   payment:   $1,493.56     interest: $1,108.56  principal: $385.00   balance: $249,615.00  [struck through]
-Feb 8   reversal:  —             backs out $385.00 principal + $1,108.56 interest               balance: $250,000.00
-Mar 1   payment:   $1,493.56     interest: 21 days × $250,000.00 = $752.05  principal: $741.51  balance: $249,258.49
+Feb 1   payment:   $1,489.80     interest: $1,114.73  principal: $375.07   balance: $249,624.93  [struck through]
+Feb 8   reversal:  —             backs out $375.07 principal                                     balance: $250,000.00
+                                 ^ interest clock resets to Jan 1 (event before the reversed Feb 1 payment)
+Mar 1   payment:   $1,489.80     interest: 59 days × $250,000.00 = $2,121.58  principal: -$632.78  balance: $250,632.78
+                                 ^ 59 days from Jan 1; interest exceeds payment → negative amortization (balance grows)
 ```
 
 ### 4.5 Additional Advance
@@ -260,4 +262,4 @@ No external library needed. Use browser-native `Blob` + `URL.createObjectURL` + 
 2. User clicks Feb 1 payment row in ledger — reversal form populates
 3. User sets NSF date to Feb 8 → submits reversal
 4. Feb 1 row becomes struck-through. Reversal row appears. Balance restored to $250,000.00
-5. User posts Mar 1 payment — interest calculated on 21 days from Feb 8 on $250,000.00
+5. User posts Mar 1 payment — interest calculated on 59 days from Jan 1 (last valid event before the reversed payment) on $250,000.00; payment shows negative amortization because interest ($2,121.58) exceeds the scheduled amount ($1,489.80)

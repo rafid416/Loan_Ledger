@@ -10,7 +10,7 @@ import {
 import { cn } from '@/lib/utils'
 import type { Action } from '@/types/loan'
 import { calculateMonthlyPaymentCents, calculateBiweeklyPaymentCents } from '@/lib/amortization'
-import { toCents, fromCents } from '@/lib/money'
+import { fromCents } from '@/lib/money'
 
 // Exported so App.tsx can own this state, preserving values when the
 // accordion section is unmounted (Radix default behaviour without forceMount).
@@ -58,39 +58,33 @@ export default function LoanSetup({
 }: LoanSetupProps) {
   const { principal, annualRate, amortizationYears, frequency, escrow, startDate, touched } = formState
 
-  const errors = useMemo<FormErrors>(() => {
-    const errs: FormErrors = {}
+  const { errors, isFormValid } = useMemo(() => {
     const p = parseFloat(principal)
     const r = parseFloat(annualRate)
     const y = parseInt(amortizationYears)
+    const errs: FormErrors = {}
     if (principal !== '' && (isNaN(p) || p <= 0)) errs.principal = 'Principal must be greater than 0'
     if (annualRate !== '' && (isNaN(r) || r <= 0 || r > 100)) errs.annualRate = 'Rate must be between 0 and 100'
     if (amortizationYears !== '' && (isNaN(y) || y < 1)) errs.amortizationYears = 'Amortization must be at least 1 year'
     if (startDate === '') errs.startDate = 'Start date is required'
-    return errs
-  }, [principal, annualRate, amortizationYears, startDate])
-
-  const isFormValid = useMemo(() => {
-    const p = parseFloat(principal)
-    const r = parseFloat(annualRate)
-    const y = parseInt(amortizationYears)
-    return (
-      !isNaN(p) && p > 0 &&
-      !isNaN(r) && r > 0 && r <= 100 &&
-      !isNaN(y) && y >= 1 &&
-      startDate !== ''
-    )
+    const valid = !isNaN(p) && p > 0 && !isNaN(r) && r > 0 && r <= 100 && !isNaN(y) && y >= 1 && startDate !== ''
+    return { errors: errs, isFormValid: valid }
   }, [principal, annualRate, amortizationYears, startDate])
 
   const previewPaymentCents = useMemo(() => {
     const p = parseFloat(principal)
     const r = parseFloat(annualRate) / 100
     const y = parseInt(amortizationYears)
+    const e = parseFloat(escrow) || 0
     if (isNaN(p) || p <= 0 || isNaN(r) || r <= 0 || isNaN(y) || y < 1) return null
-    return frequency === 'biweekly'
-      ? calculateBiweeklyPaymentCents(toCents(p), r, y)
-      : calculateMonthlyPaymentCents(toCents(p), r, y)
-  }, [principal, annualRate, amortizationYears, frequency])
+    const scheduled = frequency === 'biweekly'
+      ? calculateBiweeklyPaymentCents(Math.round(p * 100), r, y)
+      : calculateMonthlyPaymentCents(Math.round(p * 100), r, y)
+    const escrowCents = frequency === 'biweekly'
+      ? Math.round(e * 100 * 12 / 26)
+      : Math.round(e * 100)
+    return scheduled + escrowCents
+  }, [principal, annualRate, amortizationYears, frequency, escrow])
 
   function touch(field: string) {
     onFormChange({ touched: new Set([...touched, field]) })
@@ -113,7 +107,7 @@ export default function LoanSetup({
         amortizationYears: parseInt(amortizationYears),
         frequency,
         startDate,
-        escrowMonthlyCents: toCents(parseFloat(escrow) || 0),
+        escrowMonthly: parseFloat(escrow) || 0,
       },
     })
     onLoanCreated()
@@ -160,6 +154,7 @@ export default function LoanSetup({
             onChange={(e) => onFormChange({ principal: e.target.value })}
             onBlur={() => touch('principal')}
             placeholder="250000"
+            disabled={loanExists}
             className={inputCls}
           />
         </div>
@@ -184,6 +179,7 @@ export default function LoanSetup({
             onChange={(e) => onFormChange({ annualRate: e.target.value })}
             onBlur={() => touch('annualRate')}
             placeholder="5.25"
+            disabled={loanExists}
             className={inputCls}
           />
           <span className="ml-1.5 text-text-secondary">%</span>
@@ -207,6 +203,7 @@ export default function LoanSetup({
           onChange={(e) => onFormChange({ amortizationYears: e.target.value })}
           onBlur={() => touch('amortizationYears')}
           placeholder="25"
+          disabled={loanExists}
           className={standaloneCls(showError('amortizationYears'))}
         />
         {showError('amortizationYears') && (
@@ -240,7 +237,7 @@ export default function LoanSetup({
       {/* Escrow (optional) */}
       <div className="flex flex-col gap-1">
         <label htmlFor="escrow" className="text-sm font-medium text-text-primary">
-          Escrow per Payment{' '}
+          Monthly Escrow{' '}
           <span className="font-normal text-text-muted">(optional)</span>
         </label>
         <div className={wrapperCls()}>
@@ -270,6 +267,7 @@ export default function LoanSetup({
           value={startDate}
           onChange={(e) => onFormChange({ startDate: e.target.value })}
           onBlur={() => touch('startDate')}
+          disabled={loanExists}
           className={standaloneCls(showError('startDate'))}
         />
         {showError('startDate') && (
@@ -282,20 +280,20 @@ export default function LoanSetup({
         <p className="text-sm text-text-secondary">
           {frequency === 'biweekly' ? 'Bi-weekly' : 'Monthly'} Payment:{' '}
           <span className="font-mono font-medium text-text-primary">
-            {fromCents(previewPaymentCents + toCents(parseFloat(escrow) || 0))}
+            {fromCents(previewPaymentCents)}
           </span>
         </p>
       )}
 
-      <Button
-        onClick={handleSubmit}
-        disabled={!isFormValid}
-        className="w-full bg-accent-primary text-white hover:bg-accent-primary/90 disabled:opacity-40"
-      >
-        Create Loan
-      </Button>
-
-      {loanExists && (
+      {!loanExists ? (
+        <Button
+          onClick={handleSubmit}
+          disabled={!isFormValid}
+          className="w-full bg-accent-primary text-white hover:bg-accent-primary/90 disabled:opacity-40"
+        >
+          Create Loan
+        </Button>
+      ) : (
         <Button variant="destructive" onClick={handleReset} className="w-full">
           Reset Loan
         </Button>

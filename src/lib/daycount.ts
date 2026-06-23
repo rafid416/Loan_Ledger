@@ -10,15 +10,21 @@ export function daysBetween(dateA: string, dateB: string): number {
 }
 
 // 30/360 day count per FR-20: (Y2-Y1)×360 + (M2-M1)×30 + (D2-D1)
-// Every month is treated as exactly 30 days; Feb 28/29 and 31-day months
-// are normalized to 30. Used when convention === 'thirty360'.
+// ISDA end-of-month clamping: D1 > 30 → 30; D2 > 30 and D1 >= 30 → 30.
+// Note: 31-day months are normalized, but Feb end-of-month (e.g. Jan-31 → Feb-28)
+// is NOT normalized — that requires a separate ISDA adjustment not implemented here.
+// Used when convention === 'thirty360'.
 export function thirtyThreeSixtyDays(dateA: string, dateB: string): number {
   const a = parseISO(dateA)
   const b = parseISO(dateB)
+  let d1 = a.getDate()
+  let d2 = b.getDate()
+  if (d1 > 30) d1 = 30
+  if (d2 > 30 && d1 >= 30) d2 = 30
   return (
     (b.getFullYear() - a.getFullYear()) * 360 +
     (b.getMonth() - a.getMonth()) * 30 +
-    (b.getDate() - a.getDate())
+    (d2 - d1)
   )
 }
 

@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import { toCents, fromCents } from '@/lib/money'
+import { fromCents } from '@/lib/money'
 import { getReversibleEvents, isAlreadyReversed } from '@/lib/replay'
 import type { Action, Loan, LoanEvent } from '@/types/loan'
 
@@ -22,6 +22,15 @@ interface AddEventProps {
   dispatch: Dispatch<Action>
 }
 
+// Returns the per-payment scheduled amount in dollars (amortization + escrow).
+// For biweekly loans, escrow is scaled from monthly to per-payment (× 12/26).
+function scheduledAmountDollars(loan: Loan): string {
+  const escrowCents = loan.frequency === 'biweekly'
+    ? Math.round(loan.escrowMonthlyCents * 12 / 26)
+    : loan.escrowMonthlyCents
+  return ((loan.scheduledPaymentCents + escrowCents) / 100).toFixed(2)
+}
+
 const SUBMIT_LABELS: Record<EventType, string> = {
   payment: 'Post Payment',
   additional_advance: 'Post Advance',
@@ -32,12 +41,12 @@ const SUBMIT_LABELS: Record<EventType, string> = {
 export default function AddEvent({ loan, events, selectedEventId, dispatch }: AddEventProps) {
   const isPaidOff = useMemo(() => events.some(e => e.type === 'payoff'), [events])
   const reversibleEvents = useMemo(() => getReversibleEvents(events), [events])
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), [])
+  const today = new Date().toISOString().slice(0, 10)
 
   const [eventType, setEventType] = useState<EventType>('payment')
   const [date, setDate] = useState('')
   const [amount, setAmount] = useState(() =>
-    loan ? ((loan.scheduledPaymentCents + loan.escrowMonthlyCents) / 100).toFixed(2) : '',
+    loan ? scheduledAmountDollars(loan) : '',
   )
   const [reversesEventId, setReversesEventId] = useState('')
   const [touched, setTouched] = useState<Set<string>>(new Set())
@@ -59,7 +68,7 @@ export default function AddEvent({ loan, events, selectedEventId, dispatch }: Ad
     setSubmitAttempted(false)
 
     setDate(newType === 'payoff' ? today : '')
-    setAmount(newType === 'payment' && loan ? ((loan.scheduledPaymentCents + loan.escrowMonthlyCents) / 100).toFixed(2) : '')
+    setAmount(newType === 'payment' && loan ? scheduledAmountDollars(loan) : '')
     if (newType !== 'payment_reversal') setReversesEventId('')
   }
 
@@ -124,7 +133,7 @@ export default function AddEvent({ loan, events, selectedEventId, dispatch }: Ad
 
     // Reset form to defaults after posting
     setDate(eventType === 'payoff' ? today : '')
-    setAmount(eventType === 'payment' && loan ? ((loan.scheduledPaymentCents + loan.escrowMonthlyCents) / 100).toFixed(2) : '')
+    setAmount(eventType === 'payment' && loan ? scheduledAmountDollars(loan) : '')
     setReversesEventId('')
     setTouched(new Set())
     setSubmitAttempted(false)
@@ -204,12 +213,12 @@ export default function AddEvent({ loan, events, selectedEventId, dispatch }: Ad
           min={loan?.startDate}
           onChange={e => setDate(e.target.value)}
           onBlur={() => touch('date')}
-          className={standaloneCls(showError('date', date === '') || dateBeforeFunding)}
+          className={standaloneCls(showError('date', date === '' || dateBeforeFunding))}
         />
         {showError('date', date === '') && (
           <p className="text-[12px] text-accent-error">Date is required</p>
         )}
-        {dateBeforeFunding && (
+        {showError('date', dateBeforeFunding) && (
           <p className="text-[12px] text-accent-error">
             Date cannot be before the funding date ({loan!.startDate})
           </p>
@@ -261,10 +270,7 @@ export default function AddEvent({ loan, events, selectedEventId, dispatch }: Ad
                 </SelectTrigger>
                 <SelectContent>
                   {reversibleEvents.map(event => {
-                    const label =
-                      event.type === 'payment' || event.type === 'additional_advance'
-                        ? `${format(parseISO(event.date), 'MMM dd, yyyy')} — ${fromCents(toCents(event.amount))}`
-                        : event.id
+                    const label = `${format(parseISO(event.date), 'MMM dd, yyyy')} — ${fromCents(Math.round(event.amount * 100))}`
                     return (
                       <SelectItem key={event.id} value={event.id}>
                         {label}

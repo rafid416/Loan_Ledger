@@ -5,13 +5,11 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Loan Ledger</title>
-    <!-- Apply theme before React boots to prevent FOUC. Default: light. -->
+    <!-- Apply theme before React boots to prevent FOUC. Default: light (no class needed). -->
     <script>
       (function () {
         if (localStorage.getItem('theme') === 'dark') {
-          document.documentElement.classList.remove('light');
-        } else {
-          document.documentElement.classList.add('light');
+          document.documentElement.classList.add('dark');
         }
       })();
     </script>

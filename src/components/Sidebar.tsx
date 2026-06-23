@@ -10,8 +10,8 @@ import {
 import { Button } from '@/components/ui/button'
 
 interface SidebarProps {
-  openSection: string
-  onOpenSectionChange: (section: string) => void
+  openSection: 'loan-setup' | 'add-event' | ''
+  onOpenSectionChange: (section: 'loan-setup' | 'add-event' | '') => void
   loanSetupSlot?: React.ReactNode
   addEventSlot?: React.ReactNode
 }
@@ -24,7 +24,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
 
-  function expandTo(section: string) {
+  function expandTo(section: 'loan-setup' | 'add-event' | '') {
     setIsCollapsed(false)
     onOpenSectionChange(section)
   }
