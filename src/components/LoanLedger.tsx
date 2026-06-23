@@ -227,30 +227,6 @@ export default function LoanLedger({
         />
       </div>
 
-      {/* Export toolbar */}
-      <div className="flex justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={!hasData}
-          onClick={() => exportCSV(ledgerState!.rows, hasEscrow)}
-          className="gap-1.5 text-xs"
-        >
-          <FileDown className="h-3.5 w-3.5" />
-          Export CSV
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={!loan || !hasData}
-          onClick={() => exportJSON(events, loan!)}
-          className="gap-1.5 text-xs"
-        >
-          <FileDown className="h-3.5 w-3.5" />
-          Export JSON
-        </Button>
-      </div>
-
       {/* Ledger table panel */}
       <div className="flex flex-1 flex-col overflow-hidden rounded-lg border border-border-subtle bg-bg-surface">
         {/* Scrollable table area */}
@@ -330,8 +306,8 @@ export default function LoanLedger({
           </table>
         </div>
 
-        {/* Convention note + per-diem comparison */}
-        <div className="border-t border-border-subtle px-4 py-2">
+        {/* Convention note + export buttons */}
+        <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-2">
           {ledgerState && loan ? (() => {
             const bal = ledgerState.currentBalanceCents
             const rate = loan.annualRate
@@ -353,6 +329,29 @@ export default function LoanLedger({
                 : '30/360 active — each month treated as 30 days.'}
             </p>
           )}
+
+          <div className="flex shrink-0 gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!hasData}
+              onClick={() => exportCSV(ledgerState!.rows, hasEscrow)}
+              className="h-7 gap-1 border-border-default bg-bg-elevated px-2.5 text-[11px] text-text-primary hover:bg-bg-hover disabled:opacity-40 dark:border-border-default dark:bg-bg-elevated dark:hover:bg-bg-hover"
+            >
+              <FileDown className="h-3 w-3" />
+              CSV
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!loan || !hasData}
+              onClick={() => exportJSON(events, loan!)}
+              className="h-7 gap-1 border-border-default bg-bg-elevated px-2.5 text-[11px] text-text-primary hover:bg-bg-hover disabled:opacity-40 dark:border-border-default dark:bg-bg-elevated dark:hover:bg-bg-hover"
+            >
+              <FileDown className="h-3 w-3" />
+              JSON
+            </Button>
+          </div>
         </div>
       </div>
     </div>
