@@ -113,19 +113,19 @@
   - [x] 5.8 App.tsx layout — full-width header + flex row (Sidebar + main flex-col). Full viewport height.
   - [x] 5.9 bg-base page background, bg-surface sidebar — dark/light tokens verified visually
 
-- [ ] 6.0 Build Loan Setup panel (traces to: FR-1, FR-2, FR-3, FR-4, DRD 6.2)
-  - [ ] 6.1 Create `src/components/LoanSetup.tsx` — accordion section content with form fields
-  - [ ] 6.2 Add Principal input — number type, $ prefix, label "Principal", placeholder "250000"
-  - [ ] 6.3 Add Annual Rate input — number type, % suffix, label "Annual Rate (%)", 2 decimal places, placeholder "5.25"
-  - [ ] 6.4 Add Amortization Years input — number type, integer only, label "Amortization (years)", placeholder "25"
-  - [ ] 6.5 Add Payment Frequency display — locked "Monthly" label (not editable in v1), shown as disabled select or static text
-  - [ ] 6.6 Add Start Date input — date picker input, label "Start Date", ISO date format
-  - [ ] 6.7 Add live monthly payment preview — display calculated `monthlyPaymentCents` below the form as "Monthly Payment: $1,493.56" in text-secondary. Updates as user types using local state before loan is created (FR-2)
-  - [ ] 6.8 Add "Create Loan" button — full width, accent-primary variant, disabled when any required field is empty or invalid
-  - [ ] 6.9 Add "Reset Loan" button — full width, destructive/ghost variant, label "Reset Loan", visible only after loan is created. Dispatches `RESET_LOAN` on click (FR-4)
-  - [ ] 6.10 Add form validation — inline error messages below each field for: non-positive principal, rate out of range (0–100), amortization < 1 year, missing start date. Errors use text-error 12px, inputs show ring-2 ring-accent-error (ACCESS-7)
-  - [ ] 6.11 On successful Create Loan — dispatch `CREATE_LOAN`, collapse Loan Setup accordion, expand Add Event accordion
-  - [ ] 6.12 All inputs have explicit `<label>` elements with `htmlFor` matching input `id` (ACCESS-4)
+- [x] 6.0 Build Loan Setup panel (traces to: FR-1, FR-2, FR-3, FR-4, DRD 6.2)
+  - [x] 6.1 Create `src/components/LoanSetup.tsx` — accordion section content with form fields
+  - [x] 6.2 Add Principal input — number type, $ prefix, label "Principal", placeholder "250000"
+  - [x] 6.3 Add Annual Rate input — number type, % suffix, label "Annual Rate (%)", 2 decimal places, placeholder "5.25"
+  - [x] 6.4 Add Amortization Years input — number type, integer only, label "Amortization (years)", placeholder "25"
+  - [x] 6.5 Add Payment Frequency display — locked "Monthly" label as static styled div
+  - [x] 6.6 Add Start Date input — date picker input, label "Start Date", ISO date format
+  - [x] 6.7 Live monthly payment preview using same formula as reducer. Updates as user types.
+  - [x] 6.8 "Create Loan" button — disabled until all fields valid, accent-primary style
+  - [x] 6.9 "Reset Loan" button — destructive variant, visible only after loan created
+  - [x] 6.10 Inline validation on blur — errors show per-field in text-accent-error 12px with ring on inputs
+  - [x] 6.11 On Create Loan — dispatch CREATE_LOAN, sidebar switches to Add Event accordion
+  - [x] 6.12 All inputs have explicit label elements with htmlFor. Form state lifted to App.tsx so values survive accordion unmount (Radix default) and sidebar collapse.
 
 - [ ] 7.0 Build Add Event panel (traces to: FR-5, FR-6, FR-13, FR-15, FR-16, FR-17, FR-18, DRD 6.3)
   - [ ] 7.1 Create `src/components/AddEvent.tsx` — accordion section content, disabled/muted until loan is created
