@@ -53,10 +53,21 @@ export function exportCSV(rows: LedgerRow[], hasEscrow: boolean): void {
 
 // 16.2 — JSON export. Exports the full event list + loan terms — enough to replay
 // the ledger from scratch on any compliant implementation.
+// Cents fields are converted to dollars so the output is consistent with the
+// other dollar-denominated fields (principal, annualRate) and readable without
+// knowing the internal representation.
 export function exportJSON(events: LoanEvent[], loan: Loan): void {
   const payload = {
     exportedAt: new Date().toISOString(),
-    loan,
+    loan: {
+      principal: loan.principal,
+      annualRate: loan.annualRate,
+      amortizationYears: loan.amortizationYears,
+      frequency: loan.frequency,
+      startDate: loan.startDate,
+      scheduledPayment: parseFloat(dec(loan.scheduledPaymentCents)),
+      escrowMonthly: parseFloat(dec(loan.escrowMonthlyCents)),
+    },
     events,
   }
   downloadBlob(JSON.stringify(payload, null, 2), 'loan-ledger.json', 'application/json')
