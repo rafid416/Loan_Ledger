@@ -184,13 +184,13 @@
 ### V1 — Stretch Goals (Complete if time allows)
 > ⚡ Task 10.0 above (NSF replay test) is core, not stretch. Everything below is genuinely optional.
 
-- [ ] 11.0 Add remaining Vitest unit tests
-  - [ ] 11.1 Create `src/lib/__tests__/amortization.test.ts` — test `calculateMonthlyPaymentCents` with known inputs: $250,000, 5.25%, 25 years → assert expected cents result
-  - [ ] 11.2 Create `src/lib/__tests__/interest.test.ts` — test `calculateInterestCents` for both Actual/365 and 30/360 conventions with known inputs. Test leap year edge case (Feb in a leap year, denominator stays 365)
-  - [ ] 11.3 Add test for additional advance: fund → advance → payment. Assert balance increases correctly after advance and interest accrues on new balance
-  - [ ] 11.4 Add test for payoff quote: confirm quote on day X is less than quote on day X+30
-  - [ ] 11.5 Add test for partial payment (amount ≠ scheduled monthly payment): confirm interest/principal split still reconciles to the exact cent
-  - [ ] 11.6 Run `npx vitest run` — confirm all tests pass
+- [x] 11.0 Add remaining Vitest unit tests
+  - [x] 11.1 Create `src/lib/__tests__/amortization.test.ts` — 5 tests: $250k/5.25%/25yr → 148,980 cents, monotonicity (longer term → lower payment, higher rate → higher payment), integer result
+  - [x] 11.2 Create `src/lib/__tests__/interest.test.ts` — 10 tests: Actual/365 (31 days, 28 days, 0 days, scaling), 30/360 (30 days), convention comparison, leap-year edge case (29 days still uses 365 denominator)
+  - [x] 11.3 Add advance scenario to replay.test.ts — advance row has 0 interest/principal, post-advance payment interest accrues on higher balance, reconciles to cent
+  - [x] 11.4 Add payoff quote tests — later date produces higher quote, quote=balance when asOfDate=last event, 0 when paid off, clamped to balance for past asOfDate
+  - [x] 11.5 Add partial payment test — $500 payment on $250k loan: principal negative, isNegativePrincipal=true, balance increases, still reconciles to cent
+  - [x] 11.6 Run `npx vitest run` — 53/53 passed across 3 test files
 
 - [ ] 12.0 Implement day-count convention toggle (traces to: FR-19, FR-20, FR-21, DRD 6.8)
   - [ ] 12.1 Add `thirtyThreeSixtyDays(dateA: string, dateB: string): number` to `src/lib/daycount.ts` — formula: `(Y2-Y1)×360 + (M2-M1)×30 + (D2-D1)` per FR-20

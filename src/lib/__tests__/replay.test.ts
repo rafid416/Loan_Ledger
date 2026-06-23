@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { replayEvents, getReversibleEvents } from '@/lib/replay'
+import { replayEvents, getReversibleEvents, calculatePayoffQuote } from '@/lib/replay'
 import type { Loan, LoanEvent } from '@/types/loan'
 
 // Reference loan: $250,000 @ 5.25% / 25yr / monthly / Jan 1 2026
@@ -213,5 +213,124 @@ describe('replayEvents — pure function', () => {
     expect(r1.currentBalanceCents).toBe(r2.currentBalanceCents)
     expect(r1.rows[0].type).toBe('funding')
     expect(r1.rows[1].type).toBe('payment')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Additional advance scenario (task 11.3)
+//
+// fund $200,000 Jan 01 → advance $50,000 Feb 01 → payment Mar 01
+// Advance has no interest/principal split; payment interest accrues on the
+// new higher balance from the advance date.
+// ---------------------------------------------------------------------------
+
+describe('replayEvents — additional advance', () => {
+  const LOAN_200K: Loan = {
+    principal: 200000,
+    annualRate: 0.0525,
+    amortizationYears: 25,
+    frequency: 'monthly',
+    startDate: '2026-01-01',
+    monthlyPaymentCents: 148980,
+  }
+
+  const events: LoanEvent[] = [
+    { id: 'ev-fund', type: 'funding',          date: '2026-01-01', amount: 200000 },
+    { id: 'ev-adv',  type: 'additional_advance', date: '2026-02-01', amount: 50000 },
+    { id: 'ev-pay',  type: 'payment',           date: '2026-03-01', amount: 1489.80 },
+  ]
+
+  const state = replayEvents(events, LOAN_200K, CONVENTION)
+  const { rows } = state
+
+  it('advance row: balance increases by advance amount', () => {
+    // Before: 20,000,000. After: 20,000,000 + 5,000,000 = 25,000,000
+    expect(rows[1].balanceAfterCents).toBe(25_000_000)
+  })
+
+  it('advance row: interest and principal are 0', () => {
+    expect(rows[1].interestCents).toBe(0)
+    expect(rows[1].principalCents).toBe(0)
+  })
+
+  it('payment row: interest accrues on the higher post-advance balance', () => {
+    // 28 days from Feb 01 to Mar 01, balance = 25,000,000
+    // Math.round(25_000_000 × 0.0525 × 28 / 365) = 100,685
+    expect(rows[2].interestCents).toBe(100_685)
+  })
+
+  it('payment row: interest + principal = payment to the cent', () => {
+    expect(rows[2].interestCents + rows[2].principalCents).toBe(rows[2].amountCents)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Payoff quote (task 11.4)
+// ---------------------------------------------------------------------------
+
+describe('calculatePayoffQuote', () => {
+  const events: LoanEvent[] = [
+    { id: 'ev-fund', type: 'funding', date: '2026-01-01', amount: 250000 },
+    { id: 'ev-pay',  type: 'payment', date: '2026-02-01', amount: 1489.80 },
+  ]
+
+  it('quote on a later date is higher than an earlier date', () => {
+    const q30 = calculatePayoffQuote(events, LOAN, CONVENTION, '2026-03-03')
+    const q60 = calculatePayoffQuote(events, LOAN, CONVENTION, '2026-04-02')
+    expect(q60).toBeGreaterThan(q30)
+  })
+
+  it('quote equals balance when asOfDate = last event date (0 days accrued)', () => {
+    const balance = replayEvents(events, LOAN, CONVENTION).currentBalanceCents
+    const quote = calculatePayoffQuote(events, LOAN, CONVENTION, '2026-02-01')
+    expect(quote).toBe(balance)
+  })
+
+  it('quote is 0 when loan is already paid off', () => {
+    const paidOffEvents: LoanEvent[] = [
+      { id: 'ev-fund',   type: 'funding', date: '2026-01-01', amount: 250000 },
+      { id: 'ev-payoff', type: 'payoff',  date: '2026-02-01' },
+    ]
+    const quote = calculatePayoffQuote(paidOffEvents, LOAN, CONVENTION, '2026-02-01')
+    expect(quote).toBe(0)
+  })
+
+  it('quote is clamped to 0 when asOfDate is before last event date', () => {
+    // asOfDate Jan 15, but last event is Feb 01 — days = negative → clamped to 0
+    const balance = replayEvents(events, LOAN, CONVENTION).currentBalanceCents
+    const quote = calculatePayoffQuote(events, LOAN, CONVENTION, '2026-01-15')
+    expect(quote).toBe(balance)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Partial payment (task 11.5)
+//
+// A payment below the scheduled monthly amount still reconciles
+// interest + principal = payment to the exact cent.
+// ---------------------------------------------------------------------------
+
+describe('replayEvents — partial payment', () => {
+  const events: LoanEvent[] = [
+    { id: 'ev-fund', type: 'funding', date: '2026-01-01', amount: 250000 },
+    { id: 'ev-pay',  type: 'payment', date: '2026-02-01', amount: 500 }, // partial: $500 only
+  ]
+
+  const state = replayEvents(events, LOAN, CONVENTION)
+  const row = state.rows[1]
+
+  it('interest + principal = payment amount to the exact cent', () => {
+    expect(row.interestCents + row.principalCents).toBe(row.amountCents)
+  })
+
+  it('principal is negative when payment is less than accrued interest (isNegativePrincipal)', () => {
+    // Payment = 50,000 cents. Interest for 31 days = 111,473 cents.
+    // Principal = 50,000 - 111,473 = -61,473 → balance INCREASES
+    expect(row.principalCents).toBeLessThan(0)
+    expect(row.isNegativePrincipal).toBe(true)
+  })
+
+  it('balance increases when payment does not cover interest', () => {
+    expect(state.currentBalanceCents).toBeGreaterThan(25_000_000)
   })
 })
