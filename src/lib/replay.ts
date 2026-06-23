@@ -148,14 +148,10 @@ export function replayEvents(
   // Accrued interest = interest that would accrue today if a payment were made right now.
   // Only meaningful if loan is open (no payoff event).
   const isPayedOff = events.some(e => e.type === 'payoff')
+  const daysToToday = Math.max(0, daysBetween(lastEventDate, new Date().toISOString().slice(0, 10)))
   const accruedInterestCents = isPayedOff
     ? 0
-    : calculateInterestCents(
-        balanceCents,
-        loan.annualRate,
-        daysBetween(lastEventDate, new Date().toISOString().slice(0, 10)),
-        convention,
-      )
+    : calculateInterestCents(balanceCents, loan.annualRate, daysToToday, convention)
 
   return {
     rows,
@@ -178,7 +174,7 @@ export function calculatePayoffQuote(
 
   const lastRow = state.rows[state.rows.length - 1]
   const lastDate = lastRow?.date ?? loan.startDate
-  const days = daysBetween(lastDate, asOfDate)
+  const days = Math.max(0, daysBetween(lastDate, asOfDate))
   const interestCents = calculateInterestCents(
     state.currentBalanceCents,
     loan.annualRate,
