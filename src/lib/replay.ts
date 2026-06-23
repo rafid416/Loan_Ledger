@@ -184,6 +184,11 @@ export function calculatePayoffQuote(
   return state.currentBalanceCents + interestCents
 }
 
+// 13.1 — True if the given eventId has already been reversed by a payment_reversal event.
+export function isAlreadyReversed(eventId: string, events: LoanEvent[]): boolean {
+  return events.some(e => e.type === 'payment_reversal' && e.reversesEventId === eventId)
+}
+
 // 3.11 — Returns events eligible for reversal: payments and advances not yet reversed.
 export function getReversibleEvents(events: LoanEvent[]): LoanEvent[] {
   const reversedIds = new Set(

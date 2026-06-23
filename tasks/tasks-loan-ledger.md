@@ -204,12 +204,12 @@
 
 ### V2 — Stretch Goals (Future — do not block v1 delivery)
 
-- [ ] 13.0 Add reversal guard — prevent reversing an already-reversed payment (traces to: PRD NG-5, prd-loan-ledger-v2.md section 7b)
-  - [ ] 13.1 Implement `isAlreadyReversed(eventId: string, events: LoanEvent[]): boolean` in `src/lib/replay.ts`
-  - [ ] 13.2 Call `isAlreadyReversed` in the `ADD_EVENT` reducer action before appending a `payment_reversal` — return state unchanged if already reversed
-  - [ ] 13.3 Surface the error in `AddEvent.tsx` — show inline message "This payment has already been reversed"
-  - [ ] 13.4 Filter already-reversed events out of the reversal dropdown
-  - [ ] 13.5 Add unit test: attempt to reverse an already-reversed payment, assert state is unchanged
+- [x] 13.0 Add reversal guard — prevent reversing an already-reversed payment (traces to: PRD NG-5, prd-loan-ledger-v2.md section 7b)
+  - [x] 13.1 Implement `isAlreadyReversed(eventId: string, events: LoanEvent[]): boolean` in `src/lib/replay.ts`
+  - [x] 13.2 Call `isAlreadyReversed` in the `ADD_EVENT` reducer action before appending a `payment_reversal` — return state unchanged if already reversed
+  - [x] 13.3 Surface the error in `AddEvent.tsx` — show inline message "This payment has already been reversed"
+  - [x] 13.4 Filter already-reversed events out of the reversal dropdown
+  - [x] 13.5 Add unit test: attempt to reverse an already-reversed payment, assert state is unchanged
 
 - [ ] 14.0 Add bi-weekly payment frequency support (traces to: PRD NG-2, prd-loan-ledger-v2.md section 7b)
   - [ ] 14.1 Add `'biweekly'` to the `frequency` field in the `Loan` type

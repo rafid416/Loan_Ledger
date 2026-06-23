@@ -1,6 +1,7 @@
 import type { Action, AppState, Loan, LoanEvent } from '@/types/loan'
 import { toCents } from '@/lib/money'
 import { calculateMonthlyPaymentCents } from '@/lib/amortization'
+import { isAlreadyReversed } from '@/lib/replay'
 
 export const initialState: AppState = {
   loan: null,
@@ -37,6 +38,11 @@ export function loanReducer(state: AppState, action: Action): AppState {
     case 'ADD_EVENT': {
       // 4.4 — terminal guard: no events after payoff
       if (state.events.some(e => e.type === 'payoff')) return state
+      // 13.2 — reversal guard: silently block double-reversals
+      if (
+        action.payload.type === 'payment_reversal' &&
+        isAlreadyReversed(action.payload.reversesEventId, state.events)
+      ) return state
       const newEvent = { ...action.payload, id: crypto.randomUUID() } as LoanEvent
       return { ...state, events: [...state.events, newEvent] }
     }

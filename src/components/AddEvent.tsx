@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { toCents, fromCents } from '@/lib/money'
-import { getReversibleEvents } from '@/lib/replay'
+import { getReversibleEvents, isAlreadyReversed } from '@/lib/replay'
 import type { Action, Loan, LoanEvent } from '@/types/loan'
 
 type EventType = 'payment' | 'additional_advance' | 'payment_reversal' | 'payoff'
@@ -66,17 +66,26 @@ export default function AddEvent({ loan, events, selectedEventId, dispatch }: Ad
   const amountVal = parseFloat(amount)
   const amountValid = !isNaN(amountVal) && amountVal > 0
 
+  // 13.3 — true when the currently selected reversal target is already reversed
+  const alreadyReversedError = useMemo(
+    () =>
+      eventType === 'payment_reversal' &&
+      reversesEventId !== '' &&
+      isAlreadyReversed(reversesEventId, events),
+    [eventType, reversesEventId, events],
+  )
+
   const isValid = useMemo(() => {
     switch (eventType) {
       case 'payment':
       case 'additional_advance':
         return date !== '' && amountValid
       case 'payment_reversal':
-        return date !== '' && reversesEventId !== ''
+        return date !== '' && reversesEventId !== '' && !alreadyReversedError
       case 'payoff':
         return date !== ''
     }
-  }, [eventType, date, amountValid, reversesEventId])
+  }, [eventType, date, amountValid, reversesEventId, alreadyReversedError])
 
   function touch(field: string) {
     setTouched(prev => new Set([...prev, field]))
@@ -256,6 +265,9 @@ export default function AddEvent({ loan, events, selectedEventId, dispatch }: Ad
               </Select>
               {showError('reversesEventId', reversesEventId === '') && (
                 <p className="text-[12px] text-accent-error">Select a payment to reverse</p>
+              )}
+              {alreadyReversedError && (
+                <p className="text-[12px] text-accent-error">This payment has already been reversed</p>
               )}
             </>
           )}

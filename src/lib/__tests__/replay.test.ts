@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { replayEvents, getReversibleEvents, calculatePayoffQuote } from '@/lib/replay'
+import { replayEvents, getReversibleEvents, calculatePayoffQuote, isAlreadyReversed } from '@/lib/replay'
+import { loanReducer, initialState } from '@/reducer/loanReducer'
 import type { Loan, LoanEvent } from '@/types/loan'
 
 // Reference loan: $250,000 @ 5.25% / 25yr / monthly / Jan 1 2026
@@ -332,5 +333,69 @@ describe('replayEvents — partial payment', () => {
 
   it('balance increases when payment does not cover interest', () => {
     expect(state.currentBalanceCents).toBeGreaterThan(25_000_000)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// isAlreadyReversed + reversal guard (task 13)
+// ---------------------------------------------------------------------------
+
+describe('isAlreadyReversed', () => {
+  const events: LoanEvent[] = [
+    { id: 'ev-fund', type: 'funding',          date: '2026-01-01', amount: 250000 },
+    { id: 'ev-pay1', type: 'payment',           date: '2026-02-01', amount: 1489.80 },
+    { id: 'ev-nsf',  type: 'payment_reversal',  date: '2026-02-08', reversesEventId: 'ev-pay1' },
+    { id: 'ev-pay2', type: 'payment',           date: '2026-03-01', amount: 1489.80 },
+  ]
+
+  it('returns true for a payment that has been reversed', () => {
+    expect(isAlreadyReversed('ev-pay1', events)).toBe(true)
+  })
+
+  it('returns false for a payment that has not been reversed', () => {
+    expect(isAlreadyReversed('ev-pay2', events)).toBe(false)
+  })
+
+  it('returns false for an unknown event id', () => {
+    expect(isAlreadyReversed('ev-unknown', events)).toBe(false)
+  })
+})
+
+describe('reversal guard — reducer blocks double-reversal (task 13.2)', () => {
+  it('state is unchanged (same reference) when attempting to reverse an already-reversed payment', () => {
+    // Step 1: create loan (appends funding event automatically)
+    const state1 = loanReducer(initialState, {
+      type: 'CREATE_LOAN',
+      payload: {
+        principal: 250000,
+        annualRate: 0.0525,
+        amortizationYears: 25,
+        frequency: 'monthly',
+        startDate: '2026-01-01',
+      },
+    })
+
+    // Step 2: post a payment
+    const state2 = loanReducer(state1, {
+      type: 'ADD_EVENT',
+      payload: { type: 'payment', date: '2026-02-01', amount: 1489.80 },
+    })
+    const paymentId = state2.events[1].id
+
+    // Step 3: reverse it — first reversal should succeed (events grows to 3)
+    const state3 = loanReducer(state2, {
+      type: 'ADD_EVENT',
+      payload: { type: 'payment_reversal', date: '2026-02-08', reversesEventId: paymentId },
+    })
+    expect(state3.events).toHaveLength(3)
+
+    // Step 4: attempt to reverse the same payment again — state must be unchanged
+    const state4 = loanReducer(state3, {
+      type: 'ADD_EVENT',
+      payload: { type: 'payment_reversal', date: '2026-02-10', reversesEventId: paymentId },
+    })
+    expect(state4.events).toHaveLength(3)
+    // Same object reference proves the reducer returned early without creating a new state
+    expect(state4).toBe(state3)
   })
 })
