@@ -230,3 +230,15 @@
   - [x] 16.2 Implement `exportJSON(events: LoanEvent[], loan: Loan): void` — exports full event list + loan terms as JSON
   - [x] 16.3 Add Export CSV / Export JSON buttons above ledger table — disabled when no events exist
   - [x] 16.4 Verify downloaded files open correctly in Excel (CSV) and a text editor (JSON)
+
+### V2 — NSF Reversal Edge-Case Fixes (found during post-build correctness review)
+
+- [x] 17.0 Fix NSF interest-clock reset for consecutive reversals (commit cbfa314)
+  - [x] 17.1 Reproduce: two payments NSF'd back-to-back, then a clearing payment — the trailing payment accrued from the prior reversal date instead of the last cleared payment, under-charging interest
+  - [x] 17.2 Fix `payment_reversal` handler in `replay.ts` — walk back past `payment_reversal` rows and already-`isReversed` payments to the last balance-establishing event. Single-reversal behavior unchanged (predecessor is a real event, loop exits immediately)
+  - [x] 17.3 Add regression test to `replay.test.ts` — bi-weekly, two bounced payments then a clearing payment; assert trailing payment accrues 28 days from last cleared payment (not 18 from the reversal date)
+
+- [x] 18.0 Fix dropped advance sub-period interest when the sweeping payment is reversed (commit 7749e93)
+  - [x] 18.1 Reproduce: advance parks pre-advance sub-period interest in `pendingInterestCents`; the payment that sweeps it is NSF'd — reversal zeroed pending, so that interest was lost (never paid, never re-accrued)
+  - [x] 18.2 Fix `replay.ts` — record per-payment the pending it consumed (local `Map<eventId, number>`, no `LedgerRow`/schema/export change) and restore it on reversal. Map value is 0 for any payment without a preceding advance, so it is a no-op for the common path — all prior tests unchanged
+  - [x] 18.3 Add regression test to `replay.test.ts` — fund 100k, advance +50k, payment that sweeps the $591.97 Jan→Feb sub-period, NSF that payment, then a later payment that must still owe the $591.97 ($2,281.96 vs the buggy $1,689.99)
