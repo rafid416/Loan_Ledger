@@ -756,3 +756,103 @@ describe('replayEvents — bi-weekly full lifecycle (advance, neg-am, NSF, payof
     }
   })
 })
+
+// ---------------------------------------------------------------------------
+// Consecutive NSF reversals — regression test for the interest-clock reset.
+//
+// Two bounced payments in a row. After the SECOND reversal, the row immediately
+// before the reversed payment is the FIRST reversal row (an administrative marker).
+// The interest clock must walk back past that reversal row AND the voided payment
+// to the last cleared payment — otherwise the next payment under-accrues interest.
+//
+//   $500,000 @ 6.97% / 25yr / BI-WEEKLY / $100/mo escrow / Jun 01 2026
+//   Jun 15 / Jun 29 / Jul 13 — three clean payments
+//   Jul 20 — payment, then NSF'd Jul 23
+//   Aug 03 — payment, then NSF'd Aug 05
+//   Aug 10 — payment  → MUST accrue from Jul 13 (28 days), not Jul 23 (18 days)
+//
+// Last cleared payment is Jul 13 ($499,179.17 balance). Nothing has reduced the
+// balance since, so Aug 10 owes 28 days of interest on that balance.
+// ---------------------------------------------------------------------------
+
+describe('replayEvents — consecutive NSF reversals (interest-clock walk-back)', () => {
+  const LOAN: Loan = {
+    principal: 500000,
+    annualRate: 0.0697,
+    amortizationYears: 25,
+    frequency: 'biweekly',
+    startDate: '2026-06-01',
+    scheduledPaymentCents: 160_959,
+    escrowMonthlyCents: 10_000, // $100/mo → $46.15 per bi-weekly period
+  }
+
+  const events: LoanEvent[] = [
+    { id: 'ev-fund', type: 'funding',          date: '2026-06-01', amount: 500000 },
+    { id: 'ev-p1',   type: 'payment',           date: '2026-06-15', amount: 1655.74 },
+    { id: 'ev-p2',   type: 'payment',           date: '2026-06-29', amount: 1655.74 },
+    { id: 'ev-p3',   type: 'payment',           date: '2026-07-13', amount: 1655.74 },
+    { id: 'ev-p4',   type: 'payment',           date: '2026-07-20', amount: 1655.74 },
+    { id: 'ev-nsf1', type: 'payment_reversal',  date: '2026-07-23', reversesEventId: 'ev-p4' },
+    { id: 'ev-p5',   type: 'payment',           date: '2026-08-03', amount: 1655.74 },
+    { id: 'ev-nsf2', type: 'payment_reversal',  date: '2026-08-05', reversesEventId: 'ev-p5' },
+    { id: 'ev-p6',   type: 'payment',           date: '2026-08-10', amount: 1655.74 },
+  ]
+
+  const state = replayEvents(events, LOAN, CONVENTION)
+  const { rows } = state
+
+  it('Jul 13 — last cleared payment leaves balance 49,917,917', () => {
+    expect(rows[3].balanceAfterCents).toBe(49_917_917)
+  })
+
+  it('both NSF\'d payments are flagged isReversed', () => {
+    expect(rows[4].isReversed).toBe(true) // Jul 20
+    expect(rows[6].isReversed).toBe(true) // Aug 03
+  })
+
+  it('each reversal restores the balance to the Jul 13 level', () => {
+    expect(rows[5].balanceAfterCents).toBe(49_917_917) // after Jul 23 reversal
+    expect(rows[7].balanceAfterCents).toBe(49_917_917) // after Aug 05 reversal
+  })
+
+  it('Aug 03 payment (1st reversal already reset clock) accrues 21 days from Jul 13', () => {
+    // 49,917,917 × 0.0697 × 21 / 365 = 200,178
+    expect(rows[6].interestCents).toBe(200_178)
+  })
+
+  describe('Aug 10 payment — THE FIX: accrues 28 days from Jul 13, not 18 from Jul 23', () => {
+    const row = rows[8]
+    it('interest = 266,904 (28 days from Jul 13), NOT 171,581 (18 days from Jul 23)', () => {
+      const correct28 = Math.round(49_917_917 * 0.0697 * 28 / 365)
+      const buggy18 = Math.round(49_917_917 * 0.0697 * 18 / 365)
+      expect(correct28).toBe(266_904)
+      expect(buggy18).toBe(171_581)
+      expect(row.interestCents).toBe(266_904)
+      expect(row.interestCents).not.toBe(171_581)
+    })
+    it('principal = -105,945 (negative am — interest exceeds payment)', () => {
+      expect(row.principalCents).toBe(-105_945)
+      expect(row.isNegativePrincipal).toBe(true)
+    })
+    it('balance = 50,023,862', () => {
+      expect(row.balanceAfterCents).toBe(50_023_862)
+    })
+  })
+
+  it('final balance reflects the correct accrual: 50,023,862 ($500,238.62)', () => {
+    expect(state.currentBalanceCents).toBe(50_023_862)
+  })
+
+  it('escrow balance = 4 cleared payments × 46.15 = 18,460 (two NSFs backed out)', () => {
+    expect(state.escrowBalanceCents).toBe(Math.round(10_000 * 12 / 26) * 4)
+    expect(state.escrowBalanceCents).toBe(18_460)
+  })
+
+  it('every payment row still reconciles to the cent', () => {
+    for (const row of rows) {
+      if (row.type === 'payment') {
+        expect(row.interestCents + row.principalCents + row.escrowCents).toBe(row.amountCents)
+      }
+    }
+  })
+})

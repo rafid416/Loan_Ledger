@@ -114,8 +114,9 @@ export function replayEvents(
         // 3.8 — backs out the EXACT cents from the original payment row.
         // Only payments are reversible (advances are not NSF-able).
         // Finds the original row by reversesEventId. Marks original isReversed = true.
-        // Interest clock resets to the event BEFORE the reversed payment — the payment
-        // never cleared, so interest continues accruing from the last valid event date.
+        // Interest clock resets to the last VALID event before the reversed payment —
+        // the payment never cleared, so interest continues accruing from the last event
+        // that actually established the balance.
         // Any pendingInterest from advances that accrued between the payment and this
         // reversal is cleared: the clock resets to before the payment anyway.
         const originalRowIndex = rows.findIndex(r => r.eventId === event.reversesEventId)
@@ -132,8 +133,19 @@ export function replayEvents(
         // Clear pending interest: the clock resets to before the reversed payment
         pendingInterestCents = 0
 
-        const previousRow = rows[originalRowIndex - 1]
-        lastEventDate = previousRow?.date ?? loan.startDate
+        // Walk back to the last event that actually established the balance, skipping
+        // prior reversal rows (administrative markers, no balance impact) and already-
+        // reversed payments (voided). Without this, two NSFs in a row would leave a
+        // reversal row as the immediate predecessor and wrongly restart the interest
+        // clock at the reversal date instead of the last cleared payment.
+        let walkIndex = originalRowIndex - 1
+        while (
+          walkIndex >= 0 &&
+          (rows[walkIndex].type === 'payment_reversal' || rows[walkIndex].isReversed)
+        ) {
+          walkIndex--
+        }
+        lastEventDate = walkIndex >= 0 ? rows[walkIndex].date ?? loan.startDate : loan.startDate
 
         rows.push({
           eventId: event.id,
