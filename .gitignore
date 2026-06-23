@@ -29,6 +29,9 @@ CLAUDE.local.md
 .claude/memory/
 .claude/agent-memory/
 
+# Playwright MCP working directory (accessibility snapshots, console logs)
+.playwright-mcp/
+
 # AI workflow toolkit files (used to plan the project, not part of the deliverable)
 create-prd.md
 create-drd.md
