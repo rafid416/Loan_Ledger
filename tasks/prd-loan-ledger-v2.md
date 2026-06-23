@@ -114,7 +114,7 @@ Mar 1   payment:   $1,489.80     interest: 59 days × $250,000.00 = $2,121.58  p
 ### 4.7 Day-Count Toggle (v1 Stretch Goal)
 
 - **FR-19 [Should Have]:** The system shall provide a toggle to switch between **Actual/365** and **30/360** day-count conventions. *Traces to: US-7*
-- **FR-20 [Should Have]:** Under 30/360, day count between events shall use: `days = (Y2-Y1)×360 + (M2-M1)×30 + (D2-D1)`, denominator fixed at 360. *Traces to: US-7*
+- **FR-20 [Should Have]:** Under 30/360, day count between events shall use: `days = (Y2-Y1)×360 + (M2-M1)×30 + (D2-D1)`, denominator fixed at 360. Day-of-month values shall be clamped per the ISDA end-of-month rule before the subtraction: if `D1 > 30` then `D1 = 30`; if `D2 > 30` and `D1 ≥ 30` then `D2 = 30` (this normalizes 31-day months). The February end-of-month adjustment (e.g. Jan-31 → Feb-28) is **not** applied. *Traces to: US-7*
 - **FR-21 [Should Have]:** Switching the convention shall re-replay all events and update all ledger figures immediately. The per-diem difference between conventions shall be visible in the summary. *Traces to: US-7*
 
 ### 4.8 Unit Tests (v1 Stretch Goal)

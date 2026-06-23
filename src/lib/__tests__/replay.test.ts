@@ -589,3 +589,170 @@ describe('reversal guard — reducer blocks double-reversal (task 13.2)', () => 
     expect(state4).toBe(state3)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Bi-weekly full-lifecycle scenario — the bi-weekly counterpart to the monthly
+// NSF walkthrough. Exercises every event type in one timeline:
+//
+//   $500,000 @ 6.97% / 25yr / BI-WEEKLY / $200/mo escrow / Jun 01 2026
+//   Scheduled P+I = $1,609.59; escrow per period = round($200 × 12/26) = $92.31
+//   so a full scheduled payment = $1,701.90.
+//
+//   Jun 01 — Funding   $500,000.00
+//   Jun 15 — Payment   $1,701.90   (14 days, normal amortization)
+//   Jun 29 — Payment   $1,701.90   (14 days)
+//   Jul 06 — Advance   $200,000.00 (mid-period draw → splits the next accrual)
+//   Jul 13 — Payment   $1,701.90   (interest spans Jun 29→Jul 06 on 499k + Jul 06→Jul 13 on 699k)
+//   Jul 27 — Payment   $20,000.00  (large extra payment knocks the balance down)
+//   Aug 10 — Payment   $1,701.90   (NEGATIVE principal — interest on 681k exceeds the payment)
+//   Aug 12 — NSF reversal of the Aug 10 payment
+//   Aug 25 — Payoff
+//
+// Expected figures were derived independently (integer-cent re-implementation of
+// the accrual formula), not read back from the code under test.
+// ---------------------------------------------------------------------------
+
+describe('replayEvents — bi-weekly full lifecycle (advance, neg-am, NSF, payoff)', () => {
+  const BIWEEKLY_LOAN: Loan = {
+    principal: 500000,
+    annualRate: 0.0697,
+    amortizationYears: 25,
+    frequency: 'biweekly',
+    startDate: '2026-06-01',
+    scheduledPaymentCents: 160_959, // $1,609.59 P+I
+    escrowMonthlyCents: 20_000,     // $200/mo → $92.31 per bi-weekly period
+  }
+
+  const events: LoanEvent[] = [
+    { id: 'ev-fund',   type: 'funding',           date: '2026-06-01', amount: 500000 },
+    { id: 'ev-p1',     type: 'payment',           date: '2026-06-15', amount: 1701.90 },
+    { id: 'ev-p2',     type: 'payment',           date: '2026-06-29', amount: 1701.90 },
+    { id: 'ev-adv',    type: 'additional_advance', date: '2026-07-06', amount: 200000 },
+    { id: 'ev-p3',     type: 'payment',           date: '2026-07-13', amount: 1701.90 },
+    { id: 'ev-p4',     type: 'payment',           date: '2026-07-27', amount: 20000 },
+    { id: 'ev-p5',     type: 'payment',           date: '2026-08-10', amount: 1701.90 },
+    { id: 'ev-nsf',    type: 'payment_reversal',  date: '2026-08-12', reversesEventId: 'ev-p5' },
+    { id: 'ev-payoff', type: 'payoff',            date: '2026-08-25' },
+  ]
+
+  const state = replayEvents(events, BIWEEKLY_LOAN, CONVENTION)
+  const { rows } = state
+  const ESCROW = Math.round(20_000 * 12 / 26) // 9,231
+
+  it('produces 9 ledger rows in chronological order', () => {
+    expect(rows).toHaveLength(9)
+    expect(rows.map(r => r.type)).toEqual([
+      'funding', 'payment', 'payment', 'additional_advance',
+      'payment', 'payment', 'payment', 'payment_reversal', 'payoff',
+    ])
+  })
+
+  it('escrow per period = $92.31 (monthly × 12/26)', () => {
+    expect(ESCROW).toBe(9_231)
+  })
+
+  describe('Jun 15 + Jun 29 — normal bi-weekly amortization (14 days each)', () => {
+    it('Jun 15: interest 133,671 / principal 27,288 / escrow 9,231 / balance 49,972,712', () => {
+      expect(rows[1].interestCents).toBe(133_671)
+      expect(rows[1].principalCents).toBe(27_288)
+      expect(rows[1].escrowCents).toBe(ESCROW)
+      expect(rows[1].balanceAfterCents).toBe(49_972_712)
+    })
+    it('Jun 29: interest 133,598 / principal 27,361 / balance 49,945,351', () => {
+      expect(rows[2].interestCents).toBe(133_598)
+      expect(rows[2].principalCents).toBe(27_361)
+      expect(rows[2].balanceAfterCents).toBe(49_945_351)
+    })
+  })
+
+  describe('Jul 06 — advance raises the balance, no split', () => {
+    it('balance = 49,945,351 + 20,000,000 = 69,945,351', () => {
+      expect(rows[3].balanceAfterCents).toBe(69_945_351)
+      expect(rows[3].interestCents).toBe(0)
+      expect(rows[3].principalCents).toBe(0)
+    })
+  })
+
+  describe('Jul 13 — payment interest spans both sub-periods around the advance', () => {
+    const row = rows[4]
+    // Jun 29→Jul 06 (7d) on 49,945,351 = 66,763  (pending)
+    // Jul 06→Jul 13 (7d) on 69,945,351 = 93,497  (current period)
+    // total = 160,260
+    it('interest = 160,260 (pending 66,763 + current 93,497)', () => {
+      expect(row.interestCents).toBe(160_260)
+    })
+    it('principal = 699, balance = 69,944,652', () => {
+      expect(row.principalCents).toBe(699)
+      expect(row.balanceAfterCents).toBe(69_944_652)
+    })
+  })
+
+  describe('Jul 27 — large extra payment pays down principal', () => {
+    const row = rows[5]
+    it('interest 186,992 / principal 1,803,777 / balance 68,140,875', () => {
+      expect(row.interestCents).toBe(186_992)
+      expect(row.principalCents).toBe(1_803_777)
+      expect(row.balanceAfterCents).toBe(68_140_875)
+    })
+  })
+
+  describe('Aug 10 — scheduled payment goes into negative amortization', () => {
+    const row = rows[6]
+    it('interest 182,169 exceeds the $1,609.59 P+I → principal is negative', () => {
+      expect(row.interestCents).toBe(182_169)
+      expect(row.principalCents).toBe(-21_210)
+      expect(row.isNegativePrincipal).toBe(true)
+    })
+    it('balance grows to 68,162,085', () => {
+      expect(row.balanceAfterCents).toBe(68_162_085)
+    })
+    it('is marked isReversed once the NSF is processed', () => {
+      expect(row.isReversed).toBe(true)
+      expect(row.reversedByEventId).toBe('ev-nsf')
+    })
+  })
+
+  describe('Aug 12 — NSF reversal restores the exact pre-payment balance', () => {
+    it('reversal backs out the negative principal, restoring balance to the Jul 27 level', () => {
+      // Even though the reversed payment had NEGATIVE principal, the reversal
+      // restores the balance to exactly what it was before that payment.
+      expect(rows[7].balanceAfterCents).toBe(68_140_875)
+      expect(rows[7].balanceAfterCents).toBe(rows[5].balanceAfterCents)
+    })
+    it('reversal row itself carries no money', () => {
+      expect(rows[7].amountCents).toBe(0)
+      expect(rows[7].interestCents).toBe(0)
+      expect(rows[7].principalCents).toBe(0)
+    })
+  })
+
+  describe('Aug 25 — payoff accrues from the last VALID event (Jul 27, not the reversed Aug 10)', () => {
+    const row = rows[8]
+    // Jul 27 → Aug 25 = 29 days on 68,140,875 → 377,351
+    it('interest = 377,351 (29 days from Jul 27)', () => {
+      expect(row.interestCents).toBe(377_351)
+    })
+    it('payoff amount = balance + interest = 68,518,226 and balance zeroes out', () => {
+      expect(row.amountCents).toBe(68_518_226)
+      expect(row.balanceAfterCents).toBe(0)
+    })
+  })
+
+  describe('final state', () => {
+    it('balance is fully paid off', () => {
+      expect(state.currentBalanceCents).toBe(0)
+    })
+    it('escrow balance = 4 effective payments × 9,231 = 36,924 (5 collected − 1 reversed)', () => {
+      expect(state.escrowBalanceCents).toBe(ESCROW * 4)
+      expect(state.escrowBalanceCents).toBe(36_924)
+    })
+  })
+
+  it('every non-reversal money row reconciles: interest + principal + escrow = amount', () => {
+    for (const row of rows) {
+      if (row.type === 'payment' || row.type === 'payoff') {
+        expect(row.interestCents + row.principalCents + row.escrowCents).toBe(row.amountCents)
+      }
+    }
+  })
+})
