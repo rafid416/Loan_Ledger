@@ -318,7 +318,7 @@ export default function LoanLedger({
                   ? 'Actual/365 active — leap years use a fixed 365-day denominator.'
                   : '30/360 active — each month treated as 30 days.'}
                 {' '}
-                Per diem: Actual/365 {fromCents(pd365)} · 30/360 {fromCents(pd360)}
+                Daily interest: Actual/365 {fromCents(pd365)} · 30/360 {fromCents(pd360)}
               </p>
             )
           })() : (
