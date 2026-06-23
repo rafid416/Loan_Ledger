@@ -102,16 +102,16 @@
   - [x] 4.7 Export `loanReducer` and `initialState` from the module
   - [x] 4.8 Wire `useReducer(loanReducer, initialState)` + `useMemo` for ledgerState into `App.tsx`. TypeScript check passes clean.
 
-- [ ] 5.0 Build app shell — header, sidebar, layout, theme toggle (traces to: DRD sections 4, 6.1, 6.9)
-  - [ ] 5.1 Create `src/components/AppHeader.tsx` — full-width sticky header, 48px height, bg-surface, 1px bottom border border-subtle
-  - [ ] 5.2 Add app title "Loan Ledger" to header left side — 20px font-semibold text-primary
-  - [ ] 5.3 Add light/dark mode toggle button to header right — Sun/Moon icon from lucide-react, switches `dark` class on `document.documentElement`. Apply the class before first paint to prevent flash of unstyled content (FOUC): read localStorage in a script tag in `index.html` before React loads, apply `dark` class immediately if saved preference is dark. Default: dark mode.
-  - [ ] 5.4 Create `src/components/Sidebar.tsx` — left panel with two states: expanded (280px) and collapsed (64px icon rail). Transition: 200ms ease-out. Wrap transition in `@media (prefers-reduced-motion: reduce)` check — disable animation when user has reduced motion enabled (DRD 4.3, DRD 7.4)
-  - [ ] 5.5 Add collapse/expand toggle button at bottom of sidebar — ChevronLeft icon when expanded, ChevronRight when collapsed
-  - [ ] 5.6 Implement collapsed icon rail — shows Settings icon (Loan Setup), Plus icon (Add Event), ChevronRight (expand). Clicking an icon expands the sidebar and opens that accordion section
-  - [ ] 5.7 Implement accordion behaviour in sidebar — Shadcn `Accordion` component with `type="single"` so only one section is open at a time. Sections: "Loan Setup" and "Add Event"
-  - [ ] 5.8 Set up main layout in `App.tsx` — flex row: Sidebar (fixed width) + main content area (flex-1). Main content: flex column with stat cards row on top and ledger below. Full viewport height.
-  - [ ] 5.9 Apply bg-base to page background, bg-surface to sidebar — confirm dark/light mode tokens switch correctly when toggle is clicked
+- [x] 5.0 Build app shell — header, sidebar, layout, theme toggle (traces to: DRD sections 4, 6.1, 6.9)
+  - [x] 5.1 Create `src/components/AppHeader.tsx` — full-width sticky header, 48px height, bg-surface, 1px bottom border border-subtle
+  - [x] 5.2 Add app title "Loan Ledger" to header left side — 20px font-semibold text-primary
+  - [x] 5.3 Add light/dark mode toggle button to header right — FOUC prevention script in index.html, default dark mode, localStorage persists preference
+  - [x] 5.4 Create `src/components/Sidebar.tsx` — expanded (280px) / collapsed (64px) with transition-all duration-200 ease-out motion-reduce:transition-none
+  - [x] 5.5 Collapse/expand toggle at bottom — ChevronLeft/ChevronRight
+  - [x] 5.6 Collapsed icon rail — Settings (Loan Setup) + Plus (Add Event); clicking expands sidebar and opens that section
+  - [x] 5.7 Accordion type="single" collapsible — openSection lifted to App.tsx so task 6.11 can switch sections after loan creation
+  - [x] 5.8 App.tsx layout — full-width header + flex row (Sidebar + main flex-col). Full viewport height.
+  - [x] 5.9 bg-base page background, bg-surface sidebar — dark/light tokens verified visually
 
 - [ ] 6.0 Build Loan Setup panel (traces to: FR-1, FR-2, FR-3, FR-4, DRD 6.2)
   - [ ] 6.1 Create `src/components/LoanSetup.tsx` — accordion section content with form fields

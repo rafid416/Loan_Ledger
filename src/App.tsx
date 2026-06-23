@@ -1,23 +1,35 @@
-import { useMemo, useReducer } from 'react'
+import { useMemo, useReducer, useState } from 'react'
 import { loanReducer, initialState } from '@/reducer/loanReducer'
 import { replayEvents } from '@/lib/replay'
+import AppHeader from '@/components/AppHeader'
+import Sidebar from '@/components/Sidebar'
 
 export default function App() {
   const [state, dispatch] = useReducer(loanReducer, initialState)
+  const [sidebarSection, setSidebarSection] = useState<string>('loan-setup')
 
-  // 4.8 — pure derived state; never call replayEvents inside child components
   const ledgerState = useMemo(
     () => (state.loan ? replayEvents(state.events, state.loan, state.convention) : null),
     [state.events, state.loan, state.convention],
   )
 
-  // dispatch and ledgerState will be passed to child components in task 5+
+  // dispatch, state, ledgerState will be wired to panels in tasks 6–8
   void dispatch
+  void state
   void ledgerState
 
   return (
-    <div className="min-h-screen bg-bg-base text-text-primary">
-      <p className="p-4">Loan Ledger</p>
+    <div className="flex h-screen flex-col overflow-hidden bg-bg-base">
+      <AppHeader />
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar
+          openSection={sidebarSection}
+          onOpenSectionChange={setSidebarSection}
+        />
+        <main className="flex flex-1 flex-col overflow-hidden p-4">
+          {/* Stat cards + ledger table — task 8 */}
+        </main>
+      </div>
     </div>
   )
 }
