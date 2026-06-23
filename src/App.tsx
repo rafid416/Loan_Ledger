@@ -17,9 +17,13 @@ export default function App() {
     setLoanForm((prev) => ({ ...prev, ...update }))
   }
 
+  // Read "today" once here, at the edge, and feed it into the pure replay function.
+  // Keeps replayEvents clock-free and re-derives the accrued/payoff figures if the
+  // date changes (e.g. the app is left open across midnight).
+  const today = new Date().toISOString().slice(0, 10)
   const ledgerState = useMemo(
-    () => (state.loan ? replayEvents(state.events, state.loan, state.convention) : null),
-    [state.events, state.loan, state.convention],
+    () => (state.loan ? replayEvents(state.events, state.loan, state.convention, today) : null),
+    [state.events, state.loan, state.convention, today],
   )
 
   return (

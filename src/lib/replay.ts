@@ -5,11 +5,16 @@ import { daysFor } from '@/lib/daycount'
 import { calculateInterestCents } from '@/lib/interest'
 
 // Pure function — same inputs always produce the same ledger.
-// Called via useMemo([events, loan, convention]) in App.tsx.
+// asOfDate is the reference "today" for accrued-interest / payoff-today figures;
+// the production caller (App.tsx) passes it explicitly so this function performs
+// no clock reads of its own. The default exists only for convenience in tests
+// that don't assert as-of-today figures.
+// Called via useMemo([events, loan, convention, today]) in App.tsx.
 export function replayEvents(
   events: LoanEvent[],
   loan: Loan,
   convention: DayCountConvention,
+  asOfDate: string = new Date().toISOString().slice(0, 10),
 ): LedgerState {
   // Sort ascending by date. Stable sort preserves insertion order for same-date events.
   const sorted = [...events].sort(
@@ -206,7 +211,7 @@ export function replayEvents(
   // Includes any pending sub-period interest from advances since the last payment.
   // Only meaningful if loan is open (no payoff event).
   const isPaidOff = events.some(e => e.type === 'payoff')
-  const daysToToday = Math.max(0, daysFor(lastEventDate, new Date().toISOString().slice(0, 10), convention))
+  const daysToToday = Math.max(0, daysFor(lastEventDate, asOfDate, convention))
   const accruedInterestCents = isPaidOff
     ? 0
     : pendingInterestCents + calculateInterestCents(balanceCents, loan.annualRate, daysToToday, convention)
@@ -231,7 +236,9 @@ export function calculatePayoffQuote(
   convention: DayCountConvention,
   asOfDate: string,
 ): number {
-  const state = replayEvents(events, loan, convention)
+  // Forward asOfDate so the internal replay performs no clock read either; the
+  // quote is computed below from lastEventDate/balance, independent of the as-of figures.
+  const state = replayEvents(events, loan, convention, asOfDate)
   if (state.currentBalanceCents === 0) return 0
 
   const days = Math.max(0, daysFor(state.lastEventDate, asOfDate, convention))
