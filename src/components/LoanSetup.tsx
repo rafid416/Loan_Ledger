@@ -282,7 +282,7 @@ export default function LoanSetup({
         <p className="text-sm text-text-secondary">
           {frequency === 'biweekly' ? 'Bi-weekly' : 'Monthly'} Payment:{' '}
           <span className="font-mono font-medium text-text-primary">
-            {fromCents(previewPaymentCents)}
+            {fromCents(previewPaymentCents + toCents(parseFloat(escrow) || 0))}
           </span>
         </p>
       )}

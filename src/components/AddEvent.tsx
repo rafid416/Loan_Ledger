@@ -124,7 +124,7 @@ export default function AddEvent({ loan, events, selectedEventId, dispatch }: Ad
 
     // Reset form to defaults after posting
     setDate(eventType === 'payoff' ? today : '')
-    setAmount(eventType === 'payment' && loan ? (loan.scheduledPaymentCents / 100).toFixed(2) : '')
+    setAmount(eventType === 'payment' && loan ? ((loan.scheduledPaymentCents + loan.escrowMonthlyCents) / 100).toFixed(2) : '')
     setReversesEventId('')
     setTouched(new Set())
     setSubmitAttempted(false)
