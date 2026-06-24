@@ -17,6 +17,10 @@ export function replayEvents(
   asOfDate: string = new Date().toISOString().slice(0, 10),
 ): LedgerState {
   // Sort ascending by date. Stable sort preserves insertion order for same-date events.
+  // payment_reversal handling depends on the reversed payment's row already existing in
+  // `rows` when the reversal is processed. The reducer guard (reversal date >= target
+  // payment date) guarantees a reversal never sorts before its payment; for a same-date
+  // reversal, stable sort + append-only events keep the payment ahead of the reversal.
   const sorted = [...events].sort(
     (a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime(),
   )

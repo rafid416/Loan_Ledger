@@ -87,6 +87,15 @@ export default function AddEvent({ loan, events, selectedEventId, dispatch }: Ad
     [eventType, reversesEventId, events],
   )
 
+  // 13.2 — a reversal cannot be dated before the payment it reverses (mirrors the
+  // reducer guard). Without this the reducer silently rejects the event with no UI
+  // feedback. Dates are zero-padded ISO, so string comparison is chronological.
+  const reversalBeforePayment = useMemo(() => {
+    if (eventType !== 'payment_reversal' || reversesEventId === '' || date === '') return false
+    const target = events.find(e => e.id === reversesEventId)
+    return target !== undefined && date < target.date
+  }, [eventType, reversesEventId, date, events])
+
   const isValid = useMemo(() => {
     if (dateBeforeFunding) return false
     switch (eventType) {
@@ -94,11 +103,11 @@ export default function AddEvent({ loan, events, selectedEventId, dispatch }: Ad
       case 'additional_advance':
         return date !== '' && amountValid
       case 'payment_reversal':
-        return date !== '' && reversesEventId !== '' && !alreadyReversedError
+        return date !== '' && reversesEventId !== '' && !alreadyReversedError && !reversalBeforePayment
       case 'payoff':
         return date !== ''
     }
-  }, [eventType, date, amountValid, reversesEventId, alreadyReversedError, dateBeforeFunding])
+  }, [eventType, date, amountValid, reversesEventId, alreadyReversedError, reversalBeforePayment, dateBeforeFunding])
 
   function touch(field: string) {
     setTouched(prev => new Set([...prev, field]))
@@ -213,7 +222,7 @@ export default function AddEvent({ loan, events, selectedEventId, dispatch }: Ad
           min={loan?.startDate}
           onChange={e => setDate(e.target.value)}
           onBlur={() => touch('date')}
-          className={standaloneCls(showError('date', date === '' || dateBeforeFunding))}
+          className={standaloneCls(showError('date', date === '' || dateBeforeFunding || reversalBeforePayment))}
         />
         {showError('date', date === '') && (
           <p className="text-[12px] text-accent-error">Date is required</p>
@@ -221,6 +230,11 @@ export default function AddEvent({ loan, events, selectedEventId, dispatch }: Ad
         {showError('date', dateBeforeFunding) && (
           <p className="text-[12px] text-accent-error">
             Date cannot be before the funding date ({loan!.startDate})
+          </p>
+        )}
+        {showError('date', reversalBeforePayment) && (
+          <p className="text-[12px] text-accent-error">
+            Reversal cannot be dated before the payment it reverses
           </p>
         )}
       </div>

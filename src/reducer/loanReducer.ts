@@ -41,6 +41,12 @@ export function loanReducer(state: AppState, action: Action): AppState {
         const target = state.events.find(e => e.id === action.payload.reversesEventId)
         if (!target || target.type !== 'payment') return state
         if (isAlreadyReversed(action.payload.reversesEventId, state.events)) return state
+        // A reversal must not predate its target payment. replayEvents sorts by date,
+        // so an earlier-dated reversal would process *before* the payment, fail to find
+        // its row, and silently no-op — yet isAlreadyReversed would still mark the payment
+        // un-reversible, leaving the ledger and the reversible-events list disagreeing.
+        // Dates are zero-padded ISO (YYYY-MM-DD), so string comparison is chronological.
+        if (action.payload.date < target.date) return state
       }
       const newEvent: PostableEvent = { ...action.payload, id: crypto.randomUUID() } as PostableEvent
       return { ...state, events: [...state.events, newEvent] }

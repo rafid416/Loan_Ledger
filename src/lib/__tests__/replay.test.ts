@@ -590,6 +590,59 @@ describe('reversal guard — reducer blocks double-reversal (task 13.2)', () => 
   })
 })
 
+describe('reversal guard — reducer blocks a reversal dated before its payment (task 13.2)', () => {
+  // Regression: a reversal dated before its target payment used to be accepted by the
+  // reducer, then silently no-op inside replayEvents (which sorts by date and processes
+  // the reversal before the payment row exists). That left the balance un-reversed while
+  // isAlreadyReversed still reported the payment as reversed — ledger and reversible-events
+  // list disagreeing. The reducer must now reject it outright.
+  const state1 = loanReducer(initialState, {
+    type: 'CREATE_LOAN',
+    payload: {
+      principal: 250000,
+      annualRate: 0.0525,
+      amortizationYears: 25,
+      frequency: 'monthly',
+      startDate: '2026-01-01',
+      escrowMonthly: 0,
+    },
+  })
+  // Payment dated late so a reversal can be dated between funding and the payment.
+  const state2 = loanReducer(state1, {
+    type: 'ADD_EVENT',
+    payload: { type: 'payment', date: '2026-03-01', amount: 1489.80 },
+  })
+  const paymentId = state2.events[1].id
+
+  it('rejects a reversal dated before the target payment (state unchanged)', () => {
+    const state3 = loanReducer(state2, {
+      type: 'ADD_EVENT',
+      payload: { type: 'payment_reversal', date: '2026-02-01', reversesEventId: paymentId },
+    })
+    expect(state3).toBe(state2)
+    expect(state3.events).toHaveLength(2)
+    // The payment is still genuinely reversible — no phantom reversal was recorded.
+    expect(isAlreadyReversed(paymentId, state3.events)).toBe(false)
+  })
+
+  it('accepts a same-day reversal and replay processes it (balance restored, payment marked reversed)', () => {
+    const state3 = loanReducer(state2, {
+      type: 'ADD_EVENT',
+      payload: { type: 'payment_reversal', date: '2026-03-01', reversesEventId: paymentId },
+    })
+    expect(state3.events).toHaveLength(3)
+
+    // Replay must actually back the payment out, not merely store the event: a same-date
+    // reversal still sorts after its payment (stable sort + append-only), so the payment
+    // row exists when the reversal processes.
+    const replayed = replayEvents(state3.events, LOAN, 'actual365', '2026-03-01')
+    const paymentRow = replayed.rows.find(r => r.eventId === paymentId)!
+    expect(paymentRow.isReversed).toBe(true)
+    // Balance is back to the funding principal — the payment's principal was restored.
+    expect(replayed.currentBalanceCents).toBe(replayed.rows[0].balanceAfterCents)
+  })
+})
+
 // ---------------------------------------------------------------------------
 // Bi-weekly full-lifecycle scenario — the bi-weekly counterpart to the monthly
 // NSF walkthrough. Exercises every event type in one timeline:
