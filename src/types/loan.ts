@@ -60,12 +60,18 @@ export interface AppState {
 // Events the user can post after loan creation — funding is excluded (only created via CREATE_LOAN)
 export type PostableEvent = Extract<LoanEvent, { type: 'payment' | 'additional_advance' | 'payment_reversal' | 'payoff' }>
 
+// Distributive Omit: maps Omit over each union member individually. Plain
+// `Omit<Union, K>` collapses a discriminated union to its common keys (here
+// dropping `amount`/`reversesEventId`), which erases the discriminant payload.
+// `T extends unknown` forces distribution so each variant keeps its own fields.
+type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never
+
 // 2.7 — Action discriminated union for useReducer.
 // CREATE_LOAN omits scheduledPaymentCents (reducer computes it) and escrowMonthlyCents (reducer converts from dollars).
 // ADD_EVENT omits id — the reducer generates it with crypto.randomUUID().
 export type Action =
   | { type: 'CREATE_LOAN';    payload: Omit<Loan, 'scheduledPaymentCents' | 'escrowMonthlyCents'> & { escrowMonthly: number } }
   | { type: 'RESET_LOAN' }
-  | { type: 'ADD_EVENT';      payload: Omit<PostableEvent, 'id'> }
+  | { type: 'ADD_EVENT';      payload: DistributiveOmit<PostableEvent, 'id'> }
   | { type: 'SET_CONVENTION'; payload: DayCountConvention }
   | { type: 'SELECT_EVENT';   payload: string | null }
