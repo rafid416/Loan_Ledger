@@ -15,8 +15,10 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Path alias — resolves @/ to src/ */
-    "baseUrl": ".",
+    /* Path alias — resolves @/ to src/. No baseUrl: TS resolves `paths`
+       relative to this tsconfig's directory, and the mappings are already
+       written relative (./src/*). Vite resolves @/ separately via its own
+       config, so the alias works at build/runtime regardless. */
     "paths": {
       "@/*": ["./src/*"]
     },
